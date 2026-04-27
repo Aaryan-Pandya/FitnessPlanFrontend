@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitnessPlan Dashboard</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body data-page="dashboard">
+  <header class="topbar">
+    <div class="brand">FitnessPlan</div>
+    <div class="topbar-actions">
+      <a class="nav-btn secondary" href="./index.html?planner=1">Planner</a>
+      <a class="nav-btn secondary active" href="./dashboard.html">Dashboard</a>
+      <a class="nav-btn secondary" href="./account-test.html">Account</a>
+      <button class="secondary" id="logoutBtn" type="button">Log Out</button>
+    </div>
+  </header>
+
+
+  <main class="container dashboard-shell">
+    <section class="hero-grid">
+      <section class="card streak-hero">
+        <div class="eyebrow">Current streak</div>
+        <div class="streak-main" id="currentStreakNumber">0</div>
+        <div class="streak-label">completed workout days in a row</div>
+        <div class="streak-sub" id="currentStreakText">Build and save a plan to get started.</div>
+      </section>
+
+
+      <section class="card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Dashboard</p>
+            <h2>Current Plan</h2>
+          </div>
+        </div>
+        <div id="currentPlanBox" class="plan-summary-grid">
+          <div class="empty-box">No saved plan yet. Build one in the planner first.</div>
+        </div>
+      </section>
+    </section>
+
+
+    <section class="dashboard-grid two-up">
+      <section class="card">
+        <h2>Profile</h2>
+        <div id="profileBox" class="profile-grid">
+          <div class="empty-box">No profile loaded yet.</div>
+        </div>
+      </section>
+
+
+      <section class="card">
+        <h2>Key Records</h2>
+        <div id="recordsBox" class="records-grid">
+          <div class="empty-box">No records yet.</div>
+        </div>
+      </section>
+    </section>
+
+
+    <section class="dashboard-grid two-up">
+      <section class="card">
+        <h2>Coaching Signals</h2>
+        <div id="signalsBox" class="empty-box">No coaching signals yet.</div>
+      </section>
+
+
+      <section class="card">
+        <h2>Quick Stats</h2>
+        <div id="quickStatsBox" class="profile-grid">
+          <div class="empty-box">No quick stats yet.</div>
+        </div>
+      </section>
+    </section>
+
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">Today</p>
+          <h2>Today’s Workout</h2>
+        </div>
+      </div>
+      <div id="todayStatus" class="status-box">No workout loaded yet.</div>
+      <div id="todayBox" class="today-wrap">
+        <div class="empty-box">No workout to show yet.</div>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">This week</p>
+          <h2 id="weekTitle">Week</h2>
+        </div>
+      </div>
+      <div id="weekTrackerBox" class="week-grid">
+        <div class="empty-box">No week loaded yet.</div>
+      </div>
+    </section>
+
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">Ahead</p>
+          <h2>Weeks Ahead</h2>
+        </div>
+      </div>
+      <div id="weeksAheadBox" class="weeks-ahead-wrap">
+        <div class="empty-box">No future weeks yet.</div>
+      </div>
+    </section>
+  </main>
+
+
+  <script type="module" src="./script.js"></script>
+</body>
+</html>

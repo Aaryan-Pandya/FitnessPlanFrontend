@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitnessPlan Planner</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body data-page="planner">
+  <header class="topbar">
+    <div class="brand">FitnessPlan</div>
+    <div class="topbar-actions">
+      <a class="nav-btn secondary active" href="./index.html?planner=1">Planner</a>
+      <a class="nav-btn secondary" href="./dashboard.html">Dashboard</a>
+      <a class="nav-btn secondary" href="./account-test.html">Account</a>
+    </div>
+  </header>
+
+
+  <main class="container">
+    <section class="card hero-card">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">Planner</p>
+          <h1>Build your plan</h1>
+        </div>
+        <span class="mini-pill">4 weeks</span>
+      </div>
+      <p class="helper">
+        One question at a time. Cleaner inputs. Safer progression. Better week preview.
+      </p>
+    </section>
+
+
+    <section class="planner-grid">
+      <section class="card planner-card">
+        <div class="stepper-top">
+          <div class="stepper-counter" id="plannerStepCounter">Question 1 of 1</div>
+          <div class="stepper-progress">
+            <div class="stepper-progress-fill" id="plannerStepProgress"></div>
+          </div>
+        </div>
+
+
+        <div id="plannerStatus" class="status-box">Answer the questions to build your plan.</div>
+
+
+        <form id="plannerForm" novalidate>
+          <section class="planner-step" id="step-dob">
+            <label class="question-label" for="dob">Date of birth</label>
+            <input id="dob" type="date" />
+          </section>
+
+
+          <section class="planner-step" id="step-focus">
+            <label class="question-label">Primary focus</label>
+            <div class="tile-grid focus-grid">
+              <button type="button" class="tile-btn" data-focus="endurance">Endurance</button>
+              <button type="button" class="tile-btn" data-focus="strength">Strength</button>
+              <button type="button" class="tile-btn" data-focus="cardio">Cardio</button>
+              <button type="button" class="tile-btn" data-focus="flexibility">Flexibility</button>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-endurance-type">
+            <label class="question-label">Type of endurance</label>
+            <div class="tile-grid endurance-grid">
+              <button type="button" class="tile-btn" data-type="running">Running</button>
+              <button type="button" class="tile-btn" data-type="cycling">Cycling</button>
+              <button type="button" class="tile-btn" data-type="swimming">Swimming</button>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-strength-goals">
+            <label class="question-label">Strength goals</label>
+            <div class="tile-grid goals-grid">
+              <button type="button" class="tile-btn" data-goal="push">Push</button>
+              <button type="button" class="tile-btn" data-goal="pull">Pull</button>
+              <button type="button" class="tile-btn" data-goal="squat">Squat</button>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-push-skill">
+            <label class="question-label">Ultimate push goal</label>
+            <div class="tile-grid skill-grid">
+              <button type="button" class="tile-btn" data-skill="one-arm">One-Arm Pushup</button>
+              <button type="button" class="tile-btn" data-skill="hspu">Handstand Pushup</button>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-pull-skill">
+            <label class="question-label">Ultimate pull goal</label>
+            <div class="tile-grid skill-grid">
+              <button type="button" class="tile-btn" data-skill="one-arm-pull">One-Arm Pullup</button>
+              <button type="button" class="tile-btn" data-skill="muscle-up">Muscle Up</button>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-days">
+            <label class="question-label" for="daysPerWeek">Workouts per week</label>
+            <select id="daysPerWeek">
+              <option value="3">3 workouts</option>
+              <option value="4">4 workouts</option>
+              <option value="5">5 workouts</option>
+            </select>
+          </section>
+
+
+          <section class="planner-step" id="step-session-length">
+            <label class="question-label" for="sessionLength">Workout length</label>
+            <select id="sessionLength">
+              <option value="30">30 minutes</option>
+              <option value="60" selected>60 minutes</option>
+              <option value="90">90 minutes</option>
+            </select>
+          </section>
+
+
+          <section class="planner-step" id="step-push-variation">
+            <label class="question-label" for="pushVariation">Hardest push variation</label>
+            <select id="pushVariation">
+              <option value="none">Cannot do one yet</option>
+              <option value="plank">Plank (floor)</option>
+              <option value="scapula">Scapula push-up</option>
+              <option value="wall">Wall push-up</option>
+              <option value="incline">Incline push-up</option>
+              <option value="knee">Knee push-up</option>
+              <option value="negatives">Negatives</option>
+              <option value="regular">Regular push-up</option>
+              <option value="wide">Wide push-up</option>
+              <option value="diamond">Diamond push-up</option>
+              <option value="tricep">Tricep extensions</option>
+              <option value="exploding">Exploding push-up</option>
+              <option value="archer">Archer push-up</option>
+              <option value="one-arm-archer">One arm archer</option>
+              <option value="pike">Pike push-up</option>
+              <option value="hspu-wall">Wall HSPU</option>
+            </select>
+          </section>
+
+
+          <section class="planner-step" id="step-push-max">
+            <label class="question-label" for="pushupMax">Max clean reps</label>
+            <input id="pushupMax" type="text" inputmode="numeric" placeholder="Example: 8" />
+          </section>
+
+
+          <section class="planner-step" id="step-pull-variation">
+            <label class="question-label" for="pullVariation">Hardest pull variation</label>
+            <select id="pullVariation">
+              <option value="none">Cannot do one yet</option>
+              <option value="dead-hang">Dead hang</option>
+              <option value="scapula">Scapula pull-up</option>
+              <option value="active-hang">Active hang</option>
+              <option value="negatives">Negative pull-up</option>
+              <option value="assisted">Band-assisted pull-up</option>
+              <option value="regular">Regular pull-up</option>
+              <option value="wide">Wide pull-up</option>
+              <option value="archer">Archer pull-up</option>
+              <option value="weighted">Weighted pull-up</option>
+              <option value="muscle-up">Muscle up</option>
+            </select>
+          </section>
+
+
+          <section class="planner-step" id="step-pull-assist">
+            <label class="question-label" for="pullAssist">Amount of assistance</label>
+            <div class="split-input">
+              <input id="pullAssistValue" type="text" inputmode="numeric" placeholder="Example: 20" />
+              <select id="pullAssistUnit">
+                <option value="lbs">lbs</option>
+                <option value="kg">kg</option>
+              </select>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-pull-max">
+            <label class="question-label" for="pullupMax">Max clean reps</label>
+            <input id="pullupMax" type="text" inputmode="numeric" placeholder="Example: 3" />
+          </section>
+
+
+          <section class="planner-step" id="step-plank">
+            <label class="question-label" for="plankMax">Best plank hold</label>
+            <input id="plankMax" type="text" inputmode="numeric" placeholder="Example: 45" />
+            <div class="field-help" style="margin-top: 8px;">Seconds</div>
+          </section>
+
+
+          <section class="planner-step" id="step-mile">
+            <label class="question-label" for="mileTime">Best mile time</label>
+            <input id="mileTime" type="text" placeholder="Example: 8:05" />
+          </section>
+
+
+          <section class="planner-step" id="step-run-duration">
+            <label class="question-label">Longest continuous run</label>
+            <div class="split-input">
+              <input id="longestRunDurationValue" type="text" inputmode="decimal" placeholder="Example: 20" />
+              <select id="longestRunDurationUnit">
+                <option value="minutes">Minutes</option>
+                <option value="hours">Hours</option>
+              </select>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-run-distance">
+            <label class="question-label">Longest run distance</label>
+            <div class="split-input">
+              <input id="longestRunDistanceValue" type="text" inputmode="decimal" placeholder="Example: 2" />
+              <select id="longestRunDistanceUnit">
+                <option value="miles">Miles</option>
+                <option value="km">Kilometers</option>
+              </select>
+            </div>
+          </section>
+
+
+          <section class="planner-step" id="step-start-date">
+            <label class="question-label" for="startDate">Planned start date</label>
+            <input id="startDate" type="date" />
+          </section>
+
+
+
+          <div class="button-row planner-actions">
+            <button id="plannerBackBtn" type="button" class="secondary">Back</button>
+            <button id="plannerNextBtn" type="button">Next</button>
+            <button id="generatePlanBtn" type="button" class="hidden">Generate plan</button>
+          </div>
+        </form>
+      </section>
+
+
+      <section class="card planner-summary-card">
+        <h2>Plan Summary</h2>
+        <div id="planSummaryPreview" class="preview-summary">No plan generated yet.</div>
+        <div class="planner-note">Your answers update the summary and week preview.</div>
+      </section>
+    </section>
+
+
+    <section class="card">
+      <div class="section-title-row">
+        <div>
+          <p class="eyebrow">Preview</p>
+          <h2>Week Preview</h2>
+        </div>
+      </div>
+      <div id="schedulePreview" class="week-preview-grid"></div>
+    </section>
+  </main>
+
+
+  <script type="module" src="./script.js"></script>
+</body>
+</html>

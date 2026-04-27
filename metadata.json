@@ -1,0 +1,6 @@
+{
+  "name": "FitnessPlan",
+  "description": "A youth-friendly fitness planner and dashboard that generates personalized 4-week training blocks and adapts daily workouts based on readiness scores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

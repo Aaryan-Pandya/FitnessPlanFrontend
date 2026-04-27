@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FitnessPlan Account</title>
+  <link rel="stylesheet" href="./style.css" />
+  <style>
+    .hidden { display: none !important; }
+
+
+    .account-wrap {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 8px 20px 40px;
+    }
+
+
+    .status-box,
+    .debug-box {
+      margin: 0 auto 16px;
+      max-width: 560px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: #dbeafe;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+
+    .status-box.ok { color: #86efac; }
+    .status-box.bad { color: #fecaca; }
+
+
+    .debug-box {
+      font-family: monospace;
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">FitnessPlan</div>
+    <div class="topbar-actions">
+      <a class="nav-btn secondary" href="./index.html?planner=1">Back to planner</a>
+      <a class="nav-btn secondary" href="./dashboard.html">Dashboard</a>
+    </div>
+  </header>
+
+
+  <main class="account-wrap">
+    <div id="statusBox" class="status-box">Account page ready.</div>
+    <div id="debugBox" class="debug-box">Debug output will appear here.</div>
+
+
+    <section class="card" id="homeCard">
+      <h2>Account</h2>
+      <div class="button-row">
+        <button type="button" onclick="showSignupCard()">Sign Up</button>
+        <button type="button" class="secondary" onclick="showLoginCard()">Log In</button>
+      </div>
+    </section>
+
+
+    <section class="card hidden" id="signupCard">
+      <h2>Create your account</h2>
+
+
+      <label for="signupName">Username</label>
+      <input id="signupName" type="text" placeholder="Username" />
+
+
+      <label for="signupEmail">Email</label>
+      <input id="signupEmail" type="email" placeholder="Email" />
+
+
+      <label for="signupPassword">Password</label>
+      <input id="signupPassword" type="password" placeholder="Password" />
+
+
+      <label for="signupDob">Date of birth</label>
+      <input id="signupDob" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" />
+
+
+      <div class="button-row">
+        <button type="button" id="signupBtn" onclick="handleSignup()">Create Account</button>
+        <button type="button" class="secondary" onclick="showHomeCard()">Back</button>
+      </div>
+    </section>
+
+
+    <section class="card hidden" id="loginCard">
+      <h2>Welcome back</h2>
+
+
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" placeholder="Email" />
+
+
+      <label for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" placeholder="Password" />
+
+
+      <div class="button-row">
+        <button type="button" id="loginBtn" onclick="handleLogin()">Log In</button>
+        <button type="button" class="secondary" onclick="showHomeCard()">Back</button>
+      </div>
+    </section>
+  </main>
+
+
+  <script>
+    const API = "https://fitnessplan-backend.cosmowind2013.workers.dev";
+
+
+    window.setStatus = function(message, type = "") {
+      const box = document.getElementById("statusBox");
+      box.textContent = message;
+      box.className = "status-box";
+      if (type) box.classList.add(type);
+    }
+
+
+    window.setDebug = function(message) {
+      const box = document.getElementById("debugBox");
+      if (box) box.textContent = message;
+    }
+
+
+    window.showHomeCard = function() {
+      document.getElementById("homeCard").classList.remove("hidden");
+      document.getElementById("signupCard").classList.add("hidden");
+      document.getElementById("loginCard").classList.add("hidden");
+      setStatus("Choose Sign Up or Log In.");
+    }
+
+
+    window.showSignupCard = function() {
+      document.getElementById("homeCard").classList.add("hidden");
+      document.getElementById("signupCard").classList.remove("hidden");
+      document.getElementById("loginCard").classList.add("hidden");
+      setStatus("Fill out the fields, then click Create Account.");
+    }
+
+
+    window.showLoginCard = function() {
+      document.getElementById("homeCard").classList.add("hidden");
+      document.getElementById("signupCard").classList.add("hidden");
+      document.getElementById("loginCard").classList.remove("hidden");
+      setStatus("Enter your email and password, then click Log In.");
+    }
+
+
+    function normalizeDateInput(value) {
+      const digits = value.replace(/\D/g, "").slice(0, 8);
+      if (digits.length <= 4) return digits;
+      if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+      return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+    }
+
+
+    function isValidDob(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const d = new Date(`${value}T12:00:00`);
+      return !Number.isNaN(d.getTime());
+    }
+
+
+    window.handleSignup = async function() {
+      const btn = document.getElementById("signupBtn");
+
+
+      const displayName = document.getElementById("signupName").value.trim();
+      const email = document.getElementById("signupEmail").value.trim().toLowerCase();
+      const password = document.getElementById("signupPassword").value;
+      const dob = document.getElementById("signupDob").value.trim();
+
+
+      setDebug("Button clicked.");
+
+
+      if (!displayName || !email || !password || !dob) {
+        setStatus("Please fill out username, email, password, and date of birth.", "bad");
+        setDebug("Blocked before request: missing fields.");
+        return;
+      }
+
+
+      if (!isValidDob(dob)) {
+        setStatus("Date of birth must be in YYYY-MM-DD format.", "bad");
+        setDebug("Blocked before request: DOB format invalid.");
+        return;
+      }
+
+
+      setStatus("Creating account...");
+      setDebug(`Sending POST to ${API}/signup ...`);
+      btn.disabled = true;
+
+
+      try {
+        const response = await fetch(`${API}/signup`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            displayName,
+            email,
+            password,
+            dob
+          })
+        });
+
+
+        const rawText = await response.text();
+        setDebug(`HTTP ${response.status}\n\n${rawText}`);
+
+
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = { ok: false, error: rawText || "Non-JSON response." };
+        }
+
+
+        if (data.ok && data.token && data.user) {
+          localStorage.setItem("fitnessplan_token", data.token);
+          localStorage.setItem("fitnessplan_user", JSON.stringify(data.user));
+          setStatus(`Account created. Signed in as ${data.user.username}.`, "ok");
+          window.location.href = "./dashboard.html";
+          return;
+        }
+
+
+        setStatus(data.error || "Signup failed.", "bad");
+      } catch (error) {
+        setStatus(`Signup failed: ${error.message}`, "bad");
+        setDebug(`Fetch error:\n${String(error)}`);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+
+    window.handleLogin = async function() {
+      const btn = document.getElementById("loginBtn");
+
+
+      const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+      const password = document.getElementById("loginPassword").value;
+
+
+      setDebug("Login button clicked.");
+
+
+      if (!email || !password) {
+        setStatus("Please enter email and password.", "bad");
+        setDebug("Blocked before request: missing login fields.");
+        return;
+      }
+
+
+      setStatus("Logging in...");
+      setDebug(`Sending POST to ${API}/login ...`);
+      btn.disabled = true;
+
+
+      try {
+        const response = await fetch(`${API}/login`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+
+        const rawText = await response.text();
+        setDebug(`HTTP ${response.status}\n\n${rawText}`);
+
+
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = { ok: false, error: rawText || "Non-JSON response." };
+        }
+
+
+        if (data.ok && data.token && data.user) {
+          localStorage.setItem("fitnessplan_token", data.token);
+          localStorage.setItem("fitnessplan_user", JSON.stringify(data.user));
+          setStatus(`Logged in as ${data.user.username}.`, "ok");
+          window.location.href = "./dashboard.html";
+          return;
+        }
+
+
+        setStatus(data.error || "Login failed.", "bad");
+      } catch (error) {
+        setStatus(`Login failed: ${error.message}`, "bad");
+        setDebug(`Fetch error:\n${String(error)}`);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const signupDob = document.getElementById("signupDob");
+      if (signupDob) {
+        signupDob.addEventListener("input", (e) => {
+          e.target.value = normalizeDateInput(e.target.value);
+        });
+      }
+
+
+      ["signupName", "signupEmail", "signupPassword", "signupDob"].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            handleSignup();
+          }
+        });
+      });
+
+
+      ["loginEmail", "loginPassword"].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            handleLogin();
+          }
+        });
+      });
+
+
+      setStatus("Account page ready.");
+      setDebug("Page loaded. Waiting for button click.");
+    });
+  </script>
+</body>
+</html>
