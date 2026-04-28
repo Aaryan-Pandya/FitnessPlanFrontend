@@ -1,7 +1,6 @@
-// "https://fitnessplan-backend.cosmowind2013.workers.dev"
-// I will stick to that to maintain consistency with the user's setup.
-
-const API = "https://fitnessplan-backend.cosmowind2013.workers.dev";
+// Static Frontend-Only Application
+// Persistence: localStorage
+// Routing: state-based / file-based
 
 document.addEventListener("DOMContentLoaded", () => {
     const page = document.body.dataset.page;
@@ -14,19 +13,28 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /**
- * UTILS
+ * MOCK PERSISTENCE LAYER
  */
 function getToken() {
-    return localStorage.getItem("fitnessplan_token");
+    return localStorage.getItem("fitnessplan_token") || "mock-token";
 }
 
 function getUser() {
     const u = localStorage.getItem("fitnessplan_user");
-    return u ? JSON.parse(u) : null;
+    return u ? JSON.parse(u) : { username: "Guest Master", email: "master@fitness.local" };
 }
 
 function isLoggedIn() {
-    return !!getToken();
+    return !!localStorage.getItem("fitnessplan_token");
+}
+
+function saveLocalPlan(planData) {
+    localStorage.setItem("fitnessplan_current_plan", JSON.stringify(planData));
+}
+
+function getLocalPlan() {
+    const p = localStorage.getItem("fitnessplan_current_plan");
+    return p ? JSON.parse(p) : null;
 }
 
 /**
@@ -54,7 +62,6 @@ function initPlanner() {
     const nextBtn = document.getElementById("plannerNextBtn");
     const backBtn = document.getElementById("plannerBackBtn");
     const generateBtn = document.getElementById("generatePlanBtn");
-    const counter = document.getElementById("plannerStepCounter");
     const progress = document.getElementById("plannerStepProgress");
     const statusBox = document.getElementById("plannerStatus");
 
@@ -83,7 +90,7 @@ function initPlanner() {
 
             // Endurance specific fields
             if (step === "mile" || step === "run-duration" || step === "run-distance") {
-                return formData.focus.includes("endurance") || formData.focus.includes("cardio");
+                return formData.focus.includes("endurance");
             }
 
             return true;
@@ -227,8 +234,7 @@ function initPlanner() {
         if (msg.includes("Enter your max reps")) cleanMsg = "A quick rep count helps calibrate your intensity.";
         if (msg.includes("Start date required")) cleanMsg = "Set a start date to lock in your 4-week journey.";
         if (msg.includes("Incorrect Password")) cleanMsg = "Mastery requires the right keys. Try your password again.";
-        if (msg.includes("401") || msg.includes("auth")) cleanMsg = "Your session expired. Please log in back in.";
-
+        
         statusBox.textContent = cleanMsg;
         statusBox.className = "status-box bad";
 
@@ -305,7 +311,7 @@ function initPlanner() {
         if (formData.focus.length === 0) return null;
 
         const weeks = [];
-        const days = formData.daysPerWeek || 3;
+        const daysCount = formData.daysPerWeek || 3;
         const workoutNames = ["Push Focus", "Pull Focus", "Leg Focus", "Skills", "Full Body"];
 
         for (let w = 1; w <= 4; w++) {
@@ -313,8 +319,9 @@ function initPlanner() {
             const isHighVolume = (w === 3);
             const workouts = [];
 
-            for (let d = 0; d < days; d++) {
+            for (let d = 0; d < daysCount; d++) {
                 const workout = {
+                    day: d + 1,
                     name: workoutNames[d % workoutNames.length],
                     duration: formData.sessionLength || 60,
                     description: "",
@@ -339,56 +346,50 @@ function initPlanner() {
                 if (formData.focus.includes("strength")) {
                     formData.strengthGoals.forEach(goal => {
                         let exerciseName = "Skill Movement";
-                        let sets = isHighVolume ? 5 : (isDeload ? 2 : 3);
-                        let reps = "8-10";
-                        let note = "Tempo 3-1-X-1. RIR 2 (Leave 2 in the tank).";
-                        let rest = "3 minutes";
+                        let setsNum = isHighVolume ? 5 : (isDeload ? 2 : 3);
+                        let repsNum = "8-10";
+                        let noteStr = "Tempo 3-1-X-1. RIR 2 (Leave 2 in the tank).";
+                        let restTime = "3 minutes";
 
                         if (goal === "push") {
                             exerciseName = formData.pushVariation || "Linear Push";
-                            const max = formData.pushupMax || 0;
-                            if (max > 0 && max < 5) {
-                                sets = 5;
-                                reps = "2 (Cluster)";
-                                note = "Form first. Reset between every rep.";
+                            const maxVal = formData.pushupMax || 0;
+                            if (maxVal > 0 && maxVal < 5) {
+                                setsNum = 5;
+                                repsNum = "2 (Cluster)";
+                                noteStr = "Form first. Reset between every rep.";
                             }
-                            if (pushSkill === "hspu") note += " Focus on vertical leverage path.";
+                            if (pushSkill === "hspu") noteStr += " Focus on vertical leverage path.";
                         } else if (goal === "pull") {
                             exerciseName = formData.pullVariation || "Linear Pull";
-                            const max = formData.pullupMax || 0;
-                            if (max > 0 && max < 5) {
-                                sets = 5;
-                                reps = "2 (Cluster)";
+                            const maxVal = formData.pullupMax || 0;
+                            if (maxVal > 0 && maxVal < 5) {
+                                setsNum = 5;
+                                repsNum = "2 (Cluster)";
                             }
-                            if (pullSkill === "muscle-up") note = "Explosive Chest-to-Bar tempo. Squeeze at top.";
+                            if (pullSkill === "muscle-up") noteStr = "Explosive Chest-to-Bar tempo. Squeeze at top.";
                         } else if (goal === "squat") {
                             exerciseName = "Pistol Squat Progression";
-                            note = "Focus on balance and ankle tracking.";
+                            noteStr = "Focus on balance and ankle tracking.";
                         }
                         
-                        workout.exercises.push({ name: exerciseName, sets, reps, note, rest });
+                        workout.exercises.push({ name: exerciseName, sets: setsNum, reps: repsNum, note: noteStr, rest: restTime });
                     });
                 }
 
                 // 3. Endurance / Cardio Component
-                if (formData.focus.includes("endurance") || formData.focus.includes("cardio")) {
-                    const type = formData.enduranceType ? formData.enduranceType[0] : "Run";
-                    let sets = isHighVolume ? "6 km" : (isDeload ? "3 km" : "4 km");
-                    let reps = "Zone 2";
-                    let note = "Keep breathing through nose. Constant pace.";
-                    let rest = "90 seconds";
+                if (formData.focus.includes("endurance")) {
+                    const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
+                    let setsE = isHighVolume ? "6 km" : (isDeload ? "3 km" : "4 km");
+                    let repsE = "Zone 2";
+                    let noteE = "Keep breathing through nose. Constant pace.";
+                    let restE = "90 seconds";
 
-                    if (type === "sprints") {
-                        sets = isHighVolume ? "10" : "5";
-                        reps = "100m";
-                        note = "100% effort. Walk back recovery.";
-                    }
-                    
-                    workout.exercises.push({ name: `Endurance: ${type}`, sets, reps, note, rest });
+                    workout.exercises.push({ name: `Endurance: ${eType}`, sets: setsE, reps: repsE, note: noteE, rest: restE });
                 }
 
                 // 4. Weekly Mental Challenge
-                if (d === days - 1) {
+                if (d === daysCount - 1) {
                     const challenges = ["Max Plank Hold", "Max Wall Sit", "Burpee AMRAP (2 min)", "Cold Shower (3 min)"];
                     workout.exercises.push({ 
                         name: "Mental Challenge", 
@@ -411,39 +412,26 @@ function initPlanner() {
     }
 
     async function handleGenerate() {
-        if (!isLoggedIn()) {
-            window.location.href = "./account-test.html";
-            return;
-        }
-
         generateBtn.disabled = true;
         statusBox.textContent = "Crafting your personalized 4-week plan...";
         
+        // Scientific logic happens on client
         const fullPlan = generateScientificPlan();
         
-        try {
-            const response = await fetch(`${API}/plan`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${getToken()}`
-                },
-                body: JSON.stringify({
-                    formData,
-                    weeks: fullPlan
-                })
-            });
-            const data = await response.json();
-            if (data.ok) {
-                window.location.href = "./dashboard.html";
-            } else {
-                error(data.error || "Failed to save plan.");
-            }
-        } catch (e) {
-            error("Network error: " + e.message);
-        } finally {
-            generateBtn.disabled = false;
-        }
+        // Static persistence
+        const planToSave = {
+            formData: formData,
+            weeks: fullPlan,
+            createdAt: new Date().toISOString(),
+            streak: 0
+        };
+        
+        saveLocalPlan(planToSave);
+        
+        // Mocking a network delay for quality feel
+        setTimeout(() => {
+            window.location.href = "./dashboard.html";
+        }, 1500);
     }
 
     updateStep();
@@ -453,36 +441,33 @@ function initPlanner() {
  * DASHBOARD
  */
 async function initDashboard() {
-    if (!isLoggedIn()) {
-        window.location.href = "./account-test.html";
-        return;
-    }
-
     const logoutBtn = document.getElementById("logoutBtn");
-    logoutBtn.addEventListener("click", () => {
-        localStorage.removeItem("fitnessplan_token");
-        localStorage.removeItem("fitnessplan_user");
-        window.location.href = "./account-test.html";
-    });
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", () => {
+            localStorage.removeItem("fitnessplan_token");
+            localStorage.removeItem("fitnessplan_user");
+            window.location.href = "./account-test.html";
+        });
+    }
 
     await loadDashboardData();
 }
 
 async function loadDashboardData() {
-    try {
-        const response = await fetch(`${API}/dashboard`, {
-            headers: { "Authorization": `Bearer ${getToken()}` }
-        });
-        const data = await response.json();
-        
-        if (data.ok) {
-            renderDashboard(data);
-        } else {
-            document.getElementById("todayStatus").textContent = "Error: " + (data.error || "Could not load data.");
-        }
-    } catch (e) {
-        document.getElementById("todayStatus").textContent = "Network error: " + e.message;
-    }
+    // Local static data loading
+    const plan = getLocalPlan();
+    const user = getUser();
+    
+    const data = {
+        ok: true,
+        user: user,
+        plan: plan,
+        streak: (plan ? plan.streak : 0),
+        // Simple logic for "today's workout"
+        today: (plan && plan.weeks ? plan.weeks[0].workouts[0] : null)
+    };
+
+    renderDashboard(data);
 }
 
 function renderDashboard(data) {
@@ -503,7 +488,7 @@ function renderDashboard(data) {
             </div>
             <div class="info-card">
                 <div class="info-label">Started</div>
-                <div class="info-value">${data.plan ? data.plan.formData.startDate : "N/A"}</div>
+                <div class="info-value">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString() : "N/A"}</div>
             </div>
         `;
     }
@@ -528,6 +513,9 @@ function renderDashboard(data) {
     if (todayBox && data.today) {
         todayStatus.textContent = "Workout session active.";
         renderWorkout(todayBox, data.today);
+    } else if (todayBox) {
+        todayStatus.textContent = "No plan active yet.";
+        todayBox.innerHTML = `<div class="empty-box">Go to the <a href="./index.html" style="color: #60a5fa;">Planner</a> to start.</div>`;
     }
 }
 
@@ -546,12 +534,12 @@ function renderWorkout(container, workout) {
                     <div class="exercise-box" style="margin-bottom: 12px; padding: 16px; background: rgba(15, 23, 42, 0.4); border-radius: 14px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <div class="exercise-name" style="font-size: 1.1rem; font-weight: 800; color: #60a5fa;">${ex.name}</div>
-                            <div class="mini-pill">${ex.sets} sets | ${ex.reps} reps</div>
+                            <div class="mini-pill" style="font-size: 0.8rem; background: rgba(59,130,246,0.1); color: #60a5fa; padding: 4px 10px; border-radius: 99px;">${ex.sets} sets | ${ex.reps} reps</div>
                         </div>
                         <div class="day-meta" style="font-size: 0.95rem; color: #cbd5e1; line-height: 1.5;">${ex.note || ""}</div>
                         <div style="margin-top: 10px; display: flex; gap: 10px;">
-                            ${ex.rest ? `<span class="chip neutral" style="font-size: 0.75rem;">Rest: ${ex.rest}</span>` : ""}
-                            <span class="chip neutral" style="font-size: 0.75rem;">Tempo: 3-1-X-1</span>
+                            ${ex.rest ? `<span style="font-size: 0.75rem; background: rgba(148,163,184,0.1); padding: 4px 8px; border-radius: 6px;">Rest: ${ex.rest}</span>` : ""}
+                            <span style="font-size: 0.75rem; background: rgba(148,163,184,0.1); padding: 4px 8px; border-radius: 6px;">Tempo: 3-1-X-1</span>
                         </div>
                     </div>
                 `).join("")}
