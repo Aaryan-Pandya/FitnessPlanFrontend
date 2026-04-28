@@ -168,7 +168,6 @@ function initPlanner() {
     // De-clumping/Enter-Key Logic for Elite Navigation
     function setupEnterKey() {
         document.querySelectorAll("input, select, textarea").forEach(el => {
-            // Remove existing listener if any and add new one
             el.removeEventListener("keydown", handlePlannerKey);
             el.addEventListener("keydown", handlePlannerKey);
         });
@@ -177,7 +176,7 @@ function initPlanner() {
     function handlePlannerKey(e) {
         if (e.key === "Enter") {
             const tagName = e.target.tagName.toLowerCase();
-            if (tagName === "textarea") return; // Allow newlines in textareas if any
+            if (tagName === "textarea") return;
 
             e.preventDefault();
             const visibleSteps = getVisibleSteps();
@@ -238,7 +237,7 @@ function initPlanner() {
 
     function error(msg) {
         // Invisible Operator Protocol: Hide technical details
-        let cleanMsg = "We're refining your mastery track. Please try again.";
+        let cleanMsg = "Adjusting your Mastery Track... Please refresh.";
         
         const lowerMsg = msg.toLowerCase();
         if (lowerMsg.includes("date of birth")) cleanMsg = "Tell the coach your age to personalize the intensity.";
@@ -327,9 +326,9 @@ function initPlanner() {
         const sessionNames = [
             { id: 'Day A', name: "The Push Path", goals: ["push"], goalDesc: "Chest, Shoulders & Triceps." },
             { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
-            { id: 'Day C', name: "The Lower Path", goals: ["squat"], goalDesc: "Quads, Glutes & Calves." },
-            { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Running & Heart Rate Work." },
-            { id: 'Day E', name: "Active Mastery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
+            { id: 'Day C', name: "The Leg Path", goals: ["squat"], goalDesc: "Quads, Glutes & Core." },
+            { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Steady Pace, Nose Breathing." },
+            { id: 'Day E', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
         ];
 
         for (let w = 1; w <= 4; w++) {
@@ -337,8 +336,11 @@ function initPlanner() {
             const isHighVolume = (w === 3);
             const workouts = [];
 
-            for (let d = 0; d < daysCount; d++) {
-                const session = sessionNames[d % sessionNames.length];
+            for (let d = 0; d < 5; d++) {
+                const session = sessionNames[d];
+                
+                // If user selected 3 days, only A, B, D are prioritized for focus=both
+                // For simplicity, we ensure minimum 3 sessions as requested by common splits
                 const workout = {
                     day: session.id,
                     name: `${session.id}: ${session.name}`,
@@ -347,18 +349,20 @@ function initPlanner() {
                     exercises: []
                 };
 
-                const coachTempo = "3s Down, 1s Pause, Fast Up";
+                const eliteTempo = "3s Down, 1s Pause, Fast Up, 1s Squeeze";
 
                 // 1. THE PRIMER (Warmup)
                 if (session.id === 'Day A') {
-                    workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "1", reps: "5 min", note: "Keep your chest tall.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "1", reps: "5 min", note: "Get your upper back moving so you don't snap your shoulders.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Wrist Circles", sets: "2", reps: "10", note: "Prep the joints.", rest: "30s" });
                 } else if (session.id === 'Day C') {
                     workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "1", reps: "5 min", note: "Sit deep, breathe easy.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: "30s" });
                 } else {
                     workout.exercises.push({ type: 'primer', name: "System Wake-up", sets: "2", reps: "10", note: "Full body flow.", rest: "30s" });
                 }
 
-                // 2. THE MASTERY MOVE (Strength) - Scientific Logic Applied
+                // 2. THE MASTERY MOVE (Strength)
                 if (session.goals.some(g => formData.strengthGoals.includes(g))) {
                     const goal = session.goals.find(g => formData.strengthGoals.includes(g));
                     let exerciseName = "Mastery Movement";
@@ -375,17 +379,25 @@ function initPlanner() {
                         maxReps = formData.pullupMax || 0;
                     } else if (goal === 'squat') {
                         exerciseName = "Pistol Squat Level-Up";
-                        maxReps = 5; // Default for squat if not tracked specifically
+                        maxReps = 5; 
                     }
 
-                    // Scientific Hypertrophy Logic
-                    if (maxReps > 0 && maxReps < 5) {
+                    // Rule-based Programming Logic
+                    if (maxReps < 3) {
                         repsVal = "2 (Cluster)";
                         setsVal = 5;
-                        noteStr = "Leveling Up: Short bursts of 2 reps with 20s micro-rests.";
-                    } else if (maxReps >= 5) {
+                        noteStr = "Neurological: 5 sets of 2 reps with 20s rest between reps.";
+                    } else if (maxReps >= 3 && maxReps <= 8) {
+                        const target = maxReps - 2;
+                        repsVal = `${target}`;
+                        setsVal = 4;
+                        noteStr = "Strength: 4 sets of sub-max reps.";
+                    } else if (maxReps > 12) {
                         repsVal = "8-10";
-                        noteStr = "Muscle Growth: Standard sets to maximize size. Leave 1 in the tank.";
+                        noteStr = "Mastery: Move to the Next Harder Variation immediately.";
+                    } else {
+                        repsVal = "8-10";
+                        noteStr = "Standard: Standard sets to build engine.";
                     }
 
                     workout.exercises.push({ 
@@ -395,41 +407,42 @@ function initPlanner() {
                         reps: repsVal, 
                         note: noteStr, 
                         rest: "3 minutes",
-                        tempo: coachTempo,
+                        tempo: eliteTempo,
                         metric: "What did you hit?",
                         targetReps: repsVal
                     });
                 }
 
                 // 3. THE BUILDER (Hypertrophy)
-                if (workout.exercises.length < 5) {
+                if (session.id !== 'Day D') {
                     const finishers = [
-                        { name: "Pause and Hold Plank", note: "Leveling up: Hold tight like a board." },
-                        { name: "Squeeze Glute Bridges", note: "The Lift: Squeeze hard at the top." },
-                        { name: "Pike Push Prep", note: "Shoulder Builder: Focus on the push away." }
+                        { name: "Hold Still Plank", note: "Build core stability." },
+                        { name: "Glute Squeeze Bridges", note: "The Lift: Size focus." },
+                        { name: "The Lowering Phase Push", note: "Focus on the slow down." }
                     ];
                     const fin = finishers[d % finishers.length];
                     workout.exercises.push({ 
                         type: 'builder',
                         name: fin.name, 
                         sets: "3", 
-                        reps: "12-15", 
+                        reps: "10-12", 
                         note: fin.note, 
                         rest: "60 seconds",
                         metric: "Reps completed",
-                        targetReps: "15"
+                        targetReps: "12",
+                        tempo: eliteTempo
                     });
                 }
 
-                // Endurance Case
-                if (session.id === 'Day D' && formData.focus.includes("endurance")) {
+                // 4. THE ENGINE (Cardio)
+                if (session.id === 'Day D') {
                     const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
                     workout.exercises.push({ 
                         type: 'mastery',
-                        name: `Engine Build: ${eType}`, 
+                        name: `The Engine: ${eType}`, 
                         sets: "1", 
                         reps: isHighVolume ? "6 km" : "4 km", 
-                        note: "Move at a steady pace. Breathe through your nose.", 
+                        note: "Steady Pace, Nose Breathing. Move efficiently.", 
                         rest: "Cooldown",
                         tempo: "Steady State",
                         metric: "Distance / Time",
@@ -507,6 +520,18 @@ function renderDashboard(data) {
 
     const profileBox = document.getElementById("profileBox");
     if (profileBox && data.user) {
+        let startDateStr = "Not Started";
+        if (data.plan && data.plan.formData && data.plan.formData.startDate) {
+            const d = new Date(data.plan.formData.startDate);
+            if (!isNaN(d.getTime())) {
+                startDateStr = d.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                });
+            }
+        }
+        
         profileBox.innerHTML = `
             <div class="info-card">
                 <div class="info-label">User</div>
@@ -514,7 +539,7 @@ function renderDashboard(data) {
             </div>
             <div class="info-card">
                 <div class="info-label">Started</div>
-                <div class="info-value date-display">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Not Started"}</div>
+                <div class="info-value date-display">${startDateStr}</div>
             </div>
         `;
     }
@@ -558,7 +583,7 @@ function renderWorkout(container, workout) {
     if (!container || !workout) return;
     
     container.innerHTML = `
-        <div class="today-card animate-fadeIn">
+        <div class="today-card animate-fadeIn workout-grid">
             <div class="day-top">
                 <div>
                     <div class="day-label">${workout.name}</div>
@@ -568,21 +593,21 @@ function renderWorkout(container, workout) {
             </div>
             <div class="exercise-meta">
                 ${workout.exercises.map((ex, idx) => `
-                    <div class="exercise-box">
+                    <div class="exercise-card">
                         <div class="exercise-header">
                             <div class="exercise-name">${ex.name}</div>
                             <div class="mini-pill">${ex.sets} x ${ex.reps}</div>
                         </div>
                         <div class="exercise-note">${ex.note}</div>
                         
-                        ${ex.metric ? `
+                        ${ex.type !== 'primer' && ex.metric ? `
                             <div class="tracking-stats" style="margin: 15px 0; display: flex; gap: 10px; align-items: center;">
                                 <div style="flex: 1;">
-                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Metric (${ex.metric})</div>
+                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Log Reps (${ex.metric})</div>
                                     <input type="text" class="log-input" placeholder="${ex.targetReps || 'Stats'}" data-ex-idx="${idx}" style="width: 100%; background: #0f172a; border: 1px solid rgba(148,163,184,0.2); padding: 8px; border-radius: 6px; color: #fff; font-size: 0.9rem;">
                                 </div>
                                 <div style="flex: 1;">
-                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Load / Band</div>
+                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Weight / Assistance</div>
                                     <input type="text" class="load-input" placeholder="e.g. Blue Band" data-ex-idx="${idx}" style="width: 100%; background: #0f172a; border: 1px solid rgba(148,163,184,0.2); padding: 8px; border-radius: 6px; color: #fff; font-size: 0.9rem;">
                                 </div>
                                 <button class="btn primary save-log-btn" data-ex-idx="${idx}" style="margin-top: 18px; padding: 8px 12px; font-size: 0.8rem;">Log Set</button>
@@ -590,7 +615,7 @@ function renderWorkout(container, workout) {
                         ` : ''}
 
                         <div class="exercise-footer">
-                            <span class="meta-item">Tempo: ${ex.tempo || 'Natural'}</span>
+                            <span class="meta-item">Tempo: ${ex.tempo || 'Natural Flow'}</span>
                             <span class="meta-item">Rest: ${ex.rest || '60s'}</span>
                         </div>
                     </div>
