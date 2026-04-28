@@ -322,7 +322,6 @@ function initPlanner() {
         if (formData.focus.length === 0) return null;
 
         const weeks = [];
-        const daysCount = formData.daysPerWeek || 3;
         const sessionNames = [
             { id: 'Day A', name: "The Push Path", goals: ["push"], goalDesc: "Chest, Shoulders & Triceps." },
             { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
@@ -331,16 +330,30 @@ function initPlanner() {
             { id: 'Day E', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
         ];
 
+        let allowedDays = [];
+        const hasEndurance = formData.focus.includes("endurance");
+        const hasStrength = formData.focus.includes("strength");
+
+        if (hasEndurance && hasStrength) {
+            allowedDays = [0, 1, 2, 3, 4]; // A, B, C, D, E
+        } else if (hasEndurance && !hasStrength) {
+            allowedDays = [0, 1, 3]; // A, B, D
+        } else {
+            allowedDays = [0, 1, 2]; // Defaults to A, B, C if 3 days
+            if (formData.daysPerWeek === 5) {
+                allowedDays = [0, 1, 2, 3, 4];
+            }
+        }
+
         for (let w = 1; w <= 4; w++) {
             const isDeload = (w === 4);
             const isHighVolume = (w === 3);
             const workouts = [];
 
-            for (let d = 0; d < 5; d++) {
-                const session = sessionNames[d];
+            for (let d = 0; d < allowedDays.length; d++) {
+                const sessionIndex = allowedDays[d];
+                const session = sessionNames[sessionIndex];
                 
-                // If user selected 3 days, only A, B, D are prioritized for focus=both
-                // For simplicity, we ensure minimum 3 sessions as requested by common splits
                 const workout = {
                     day: session.id,
                     name: `${session.id}: ${session.name}`,
@@ -351,103 +364,98 @@ function initPlanner() {
 
                 const eliteTempo = "3s Down, 1s Pause, Fast Up, 1s Squeeze";
 
-                // 1. THE PRIMER (Warmup)
                 if (session.id === 'Day A') {
-                    workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "1", reps: "5 min", note: "Get your upper back moving so you don't snap your shoulders.", rest: "None" });
+                    // THE PRIMER
+                    workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "2", reps: "10", note: "Get your upper back moving.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Wrist Circles", sets: "2", reps: "10", note: "Prep the joints.", rest: "30s" });
-                } else if (session.id === 'Day C') {
-                    workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "1", reps: "5 min", note: "Sit deep, breathe easy.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: "30s" });
-                } else {
-                    workout.exercises.push({ type: 'primer', name: "System Wake-up", sets: "2", reps: "10", note: "Full body flow.", rest: "30s" });
-                }
-
-                // 2. THE MASTERY MOVE (Strength)
-                if (session.goals.some(g => formData.strengthGoals.includes(g))) {
-                    const goal = session.goals.find(g => formData.strengthGoals.includes(g));
-                    let exerciseName = "Mastery Movement";
+                    
+                    // THE MASTERY MOVE
+                    let exerciseName = formData.pushVariation || "Floor Push";
+                    let maxReps = formData.pushupMax || 0;
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
-                    let noteStr = "Focus on the path of movement.";
-                    let maxReps = 10;
+                    let noteStr = "Focus on The Lowering Phase.";
 
-                    if (goal === 'push') {
-                        exerciseName = formData.pushVariation || "Floor Push";
-                        maxReps = formData.pushupMax || 0;
-                    } else if (goal === 'pull') {
-                        exerciseName = formData.pullVariation || "Linear Pull";
-                        maxReps = formData.pullupMax || 0;
-                    } else if (goal === 'squat') {
-                        exerciseName = "Pistol Squat Level-Up";
-                        maxReps = 5; 
-                    }
-
-                    // Rule-based Programming Logic
-                    if (maxReps < 3) {
-                        repsVal = "2 (Cluster)";
+                    if (maxReps > 0 && maxReps < 3) {
+                        repsVal = "2";
                         setsVal = 5;
                         noteStr = "Neurological: 5 sets of 2 reps with 20s rest between reps.";
                     } else if (maxReps >= 3 && maxReps <= 8) {
-                        const target = maxReps - 2;
-                        repsVal = `${target}`;
-                        setsVal = 4;
-                        noteStr = "Strength: 4 sets of sub-max reps.";
+                        repsVal = `${Math.max(1, maxReps - 2)}`;
+                        setsVal = isDeload ? 2 : (isHighVolume ? 4 : 3);
+                        noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
                     } else if (maxReps > 12) {
                         repsVal = "8-10";
-                        noteStr = "Mastery: Move to the Next Harder Variation immediately.";
-                    } else {
-                        repsVal = "8-10";
-                        noteStr = "Standard: Standard sets to build engine.";
+                        noteStr = "Mastery Level Reached: Move to the Next Harder Variation immediately.";
                     }
 
-                    workout.exercises.push({ 
-                        type: 'mastery',
-                        name: exerciseName, 
-                        sets: setsVal, 
-                        reps: repsVal, 
-                        note: noteStr, 
-                        rest: "3 minutes",
-                        tempo: eliteTempo,
-                        metric: "What did you hit?",
-                        targetReps: repsVal
-                    });
-                }
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
-                // 3. THE BUILDER (Hypertrophy)
-                if (session.id !== 'Day D') {
-                    const finishers = [
-                        { name: "Hold Still Plank", note: "Build core stability." },
-                        { name: "Glute Squeeze Bridges", note: "The Lift: Size focus." },
-                        { name: "The Lowering Phase Push", note: "Focus on the slow down." }
-                    ];
-                    const fin = finishers[d % finishers.length];
-                    workout.exercises.push({ 
-                        type: 'builder',
-                        name: fin.name, 
-                        sets: "3", 
-                        reps: "10-12", 
-                        note: fin.note, 
-                        rest: "60 seconds",
-                        metric: "Reps completed",
-                        targetReps: "12",
-                        tempo: eliteTempo
-                    });
-                }
+                    // THE BUILDER
+                    workout.exercises.push({ type: 'builder', name: "Pike Push Downs", sets: "3", reps: "10-12", note: "Shoulder Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+                    workout.exercises.push({ type: 'builder', name: "Tricep Extensions", sets: "3", reps: "10-12", note: "Tricep Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
 
-                // 4. THE ENGINE (Cardio)
-                if (session.id === 'Day D') {
+                } else if (session.id === 'Day B') {
+                    // THE PRIMER
+                    workout.exercises.push({ type: 'primer', name: "Shoulder Circles", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Bar Hangs", sets: "2", reps: "10s", note: "Prep the grip.", rest: "30s" });
+                    
+                    // THE MASTERY MOVE
+                    let exerciseName = formData.pullVariation || "Linear Pull";
+                    let maxReps = formData.pullupMax || 0;
+                    let repsVal = "8-10";
+                    let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
+                    let noteStr = "Hold Still for 1s at the top.";
+
+                    if (maxReps > 0 && maxReps < 3) {
+                        repsVal = "2"; 
+                        setsVal = 5; 
+                        noteStr = "Neurological: 5 sets of 2 reps with 20s rest.";
+                    } else if (maxReps >= 3 && maxReps <= 8) { 
+                        repsVal = `${Math.max(1, maxReps - 2)}`; 
+                        setsVal = isDeload ? 2 : (isHighVolume ? 4 : 3); 
+                        noteStr = `Strength: ${setsVal} sets of sub-max reps.`; 
+                    } else if (maxReps > 12) { 
+                        repsVal = "8-10"; 
+                        noteStr = "Mastery Level Reached: Move to the Next Harder Variation."; 
+                    }
+
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
+
+                    // THE BUILDER
+                    workout.exercises.push({ type: 'builder', name: "Bodyweight Rows", sets: "3", reps: "10-12", note: "Back Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+                    workout.exercises.push({ type: 'builder', name: "Bicep Curls (Band)", sets: "3", reps: "10-12", note: "Bicep Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+
+                } else if (session.id === 'Day C') {
+                    workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "2", reps: "10", note: "Sit deep, breathe easy.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: "30s" });
+                    
+                    let exerciseName = "Pistol Squat Level-Up";
+                    let repsVal = "3";
+                    let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
+                    let noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
+
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
+
+                    workout.exercises.push({ type: 'builder', name: "Glute Squeeze Bridges", sets: "3", reps: "10-12", note: "Glute Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+                    workout.exercises.push({ type: 'builder', name: "Assisted Sissy Squats", sets: "3", reps: "10-12", note: "Quad Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+
+                } else if (session.id === 'Day D') {
                     const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
                     workout.exercises.push({ 
                         type: 'mastery',
                         name: `The Engine: ${eType}`, 
                         sets: "1", 
                         reps: isHighVolume ? "6 km" : "4 km", 
-                        note: "Steady Pace, Nose Breathing. Move efficiently.", 
+                        note: "Steady Pace, Nose Breathing. Easy Pace.", 
                         rest: "Cooldown",
                         tempo: "Steady State",
                         metric: "Distance / Time",
                         targetReps: isHighVolume ? "6km" : "4km"
                     });
+                } else if (session.id === 'Day E') {
+                    workout.exercises.push({ type: 'primer', name: "Full Body Mobility", sets: "1", reps: "10 min", note: "Light movement. Easy pace.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Joint Rotations", sets: "1", reps: "5 min", note: "Keep everything loose.", rest: "None" });
                 }
 
                 workouts.push(workout);
