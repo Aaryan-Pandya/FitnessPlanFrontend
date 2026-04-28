@@ -113,6 +113,8 @@ function initPlanner() {
 
         statusBox.textContent = "Answer the questions to build your plan.";
         statusBox.className = "status-box";
+        
+        setupEnterKey();
     }
 
     nextBtn.addEventListener("click", () => {
@@ -163,20 +165,29 @@ function initPlanner() {
     setupTiles("#step-push-skill", "pushSkill", 1);
     setupTiles("#step-pull-skill", "pullSkill", 1);
 
-    // De-clumping/Enter-Key Logic
-    document.querySelectorAll(".planner-step input, .planner-step select").forEach(el => {
-        el.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                const visibleSteps = getVisibleSteps();
-                if (currentStepIndex === visibleSteps.length - 1) {
-                    generateBtn.click();
-                } else {
-                    nextBtn.click();
-                }
-            }
+    // De-clumping/Enter-Key Logic for Elite Navigation
+    function setupEnterKey() {
+        document.querySelectorAll("input, select, textarea").forEach(el => {
+            // Remove existing listener if any and add new one
+            el.removeEventListener("keydown", handlePlannerKey);
+            el.addEventListener("keydown", handlePlannerKey);
         });
-    });
+    }
+
+    function handlePlannerKey(e) {
+        if (e.key === "Enter") {
+            const tagName = e.target.tagName.toLowerCase();
+            if (tagName === "textarea") return; // Allow newlines in textareas if any
+
+            e.preventDefault();
+            const visibleSteps = getVisibleSteps();
+            if (currentStepIndex === visibleSteps.length - 1) {
+                generateBtn.click();
+            } else {
+                nextBtn.click();
+            }
+        }
+    }
 
     function validateStep() {
         const visibleSteps = getVisibleSteps();
@@ -227,13 +238,14 @@ function initPlanner() {
 
     function error(msg) {
         // Invisible Operator Protocol: Hide technical details
-        let cleanMsg = "We're fine-tuning your mastery track. Please try again.";
+        let cleanMsg = "We're refining your mastery track. Please try again.";
         
-        if (msg.includes("Date of birth required")) cleanMsg = "Please enter your date of birth to continue.";
-        if (msg.includes("Pick at least 1 focus")) cleanMsg = "Select a primary focus to tailor your plan.";
-        if (msg.includes("Enter your max reps")) cleanMsg = "A quick rep count helps calibrate your intensity.";
-        if (msg.includes("Start date required")) cleanMsg = "Set a start date to lock in your 4-week journey.";
-        if (msg.includes("Incorrect Password")) cleanMsg = "Mastery requires the right keys. Try your password again.";
+        const lowerMsg = msg.toLowerCase();
+        if (lowerMsg.includes("date of birth")) cleanMsg = "Tell the coach your age to personalize the intensity.";
+        if (lowerMsg.includes("pick at least 1 focus")) cleanMsg = "Select a primary focus to tailor your level-up path.";
+        if (lowerMsg.includes("enter your max reps")) cleanMsg = "A quick rep count helps calibrate your mastery level.";
+        if (lowerMsg.includes("start date")) cleanMsg = "Set your start date to lock in your 4-week journey.";
+        if (lowerMsg.includes("password")) cleanMsg = "Mastery requires the right keys. Try your password again.";
         
         statusBox.textContent = cleanMsg;
         statusBox.className = "status-box bad";
@@ -502,7 +514,7 @@ function renderDashboard(data) {
             </div>
             <div class="info-card">
                 <div class="info-label">Started</div>
-                <div class="info-value">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Not Started"}</div>
+                <div class="info-value date-display">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Not Started"}</div>
             </div>
         `;
     }
