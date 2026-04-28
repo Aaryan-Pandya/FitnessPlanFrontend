@@ -309,32 +309,31 @@ p {
 
 
 .stepper-top {
-  margin-bottom: 18px;
-}
-
-
-.stepper-counter {
-  font-size: 0.92rem;
-  font-weight: 800;
-  color: #dbeafe;
-  margin-bottom: 8px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 0;
+  overflow: hidden;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
 }
 
 
 .stepper-progress {
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.72);
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  height: 3px;
+  background: rgba(15, 23, 42, 0.3);
+  border: none;
+  border-radius: 0;
 }
 
 
 .stepper-progress-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(135deg, #1d8cff, #2563eb);
-  transition: width 0.2s ease;
+  background: #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 
@@ -444,6 +443,16 @@ p {
   border: 1px solid rgba(148, 163, 184, 0.12);
   padding: 16px;
   transition: transform 0.2s ease;
+}
+
+@keyframes summaryPulse {
+  0% { transform: scale(1); border-color: rgba(96, 165, 250, 0.12); }
+  50% { transform: scale(1.02); border-color: rgba(96, 165, 250, 0.4); }
+  100% { transform: scale(1); border-color: rgba(96, 165, 250, 0.12); }
+}
+
+.summary-item.pulse {
+  animation: summaryPulse 0.4s ease-out;
 }
 
 .summary-label {
@@ -697,10 +706,11 @@ p {
 .readiness-box,
 .exercise-box,
 .session-block {
-  border-radius: 16px;
+  border-radius: 20px;
   background: rgba(10, 19, 36, 0.40);
   border: 1px solid rgba(148, 163, 184, 0.12);
-  padding: 14px;
+  padding: 20px;
+  margin-bottom: 8px;
 }
 
 

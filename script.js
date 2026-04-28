@@ -47,8 +47,8 @@ function initPlanner() {
         focus: [],
         enduranceType: [],
         strengthGoals: [],
-        pushSkill: "",
-        pullSkill: ""
+        pushSkill: [],
+        pullSkill: []
     };
 
     const nextBtn = document.getElementById("plannerNextBtn");
@@ -98,7 +98,6 @@ function initPlanner() {
         const stepEl = document.getElementById(`step-${currentStepId}`);
         if (stepEl) stepEl.classList.add("active");
 
-        counter.textContent = `Progress: ${Math.round(((currentStepIndex + 1) / visibleSteps.length) * 100)}%`;
         progress.style.width = `${((currentStepIndex + 1) / visibleSteps.length) * 100}%`;
 
         backBtn.classList.toggle("hidden", currentStepIndex === 0);
