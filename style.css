@@ -466,6 +466,18 @@ p {
   box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
 }
 
+.log-input:focus,
+.load-input:focus {
+  outline: none;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.save-log-btn.good {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
 .exercise-box {
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(148, 163, 184, 0.1);

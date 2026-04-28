@@ -313,11 +313,11 @@ function initPlanner() {
         const weeks = [];
         const daysCount = formData.daysPerWeek || 3;
         const sessionNames = [
-            { id: 'Day A', name: "Push Power", goal: "Chest, Shoulders & Triceps." },
-            { id: 'Day B', name: "Pull Power", goal: "Back, Biceps & Core." },
-            { id: 'Day C', name: "Lower Focus", goal: "Quads, Glutes & Calves." },
-            { id: 'Day D', name: "Endurance & Skill", goal: "Running & Mastery Work." },
-            { id: 'Day E', name: "Mastery Recovery", goal: "Light movement & catch-up." }
+            { id: 'Day A', name: "The Push Path", goals: ["push"], goalDesc: "Chest, Shoulders & Triceps." },
+            { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
+            { id: 'Day C', name: "The Lower Path", goals: ["squat"], goalDesc: "Quads, Glutes & Calves." },
+            { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Running & Heart Rate Work." },
+            { id: 'Day E', name: "Active Mastery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
         ];
 
         for (let w = 1; w <= 4; w++) {
@@ -331,77 +331,97 @@ function initPlanner() {
                     day: session.id,
                     name: `${session.id}: ${session.name}`,
                     duration: formData.sessionLength || 60,
-                    description: session.goal,
+                    description: session.goalDesc,
                     exercises: []
                 };
 
-                // Simple Tempo Translation (Coach Protocol)
-                const coachTempo = "3s Down, 1s Hold, Fast Up, 1s Squeeze";
+                const coachTempo = "3s Down, 1s Pause, Fast Up";
 
-                // 1. Mobility (Simple Language)
+                // 1. THE PRIMER (Warmup)
                 if (session.id === 'Day A') {
-                    workout.exercises.push({ name: "Upper Back Flexibility", sets: "1", reps: "5 min", note: "Keep your chest tall.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "1", reps: "5 min", note: "Keep your chest tall.", rest: "None" });
                 } else if (session.id === 'Day C') {
-                    workout.exercises.push({ name: "Ankle & Hip Opening", sets: "1", reps: "5 min", note: "Sit deep, breathe easy.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "1", reps: "5 min", note: "Sit deep, breathe easy.", rest: "None" });
+                } else {
+                    workout.exercises.push({ type: 'primer', name: "System Wake-up", sets: "2", reps: "10", note: "Full body flow.", rest: "30s" });
                 }
 
-                // 2. Mastery Movements (Limit to 5 total)
-                if (session.id === 'Day A' && formData.strengthGoals.includes("push")) {
-                    const exerciseName = formData.pushVariation || "Floor Push";
+                // 2. THE MASTERY MOVE (Strength) - Scientific Logic Applied
+                if (session.goals.some(g => formData.strengthGoals.includes(g))) {
+                    const goal = session.goals.find(g => formData.strengthGoals.includes(g));
+                    let exerciseName = "Mastery Movement";
+                    let repsVal = "8-10";
+                    let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
+                    let noteStr = "Focus on the path of movement.";
+                    let maxReps = 10;
+
+                    if (goal === 'push') {
+                        exerciseName = formData.pushVariation || "Floor Push";
+                        maxReps = formData.pushupMax || 0;
+                    } else if (goal === 'pull') {
+                        exerciseName = formData.pullVariation || "Linear Pull";
+                        maxReps = formData.pullupMax || 0;
+                    } else if (goal === 'squat') {
+                        exerciseName = "Pistol Squat Level-Up";
+                        maxReps = 5; // Default for squat if not tracked specifically
+                    }
+
+                    // Scientific Hypertrophy Logic
+                    if (maxReps > 0 && maxReps < 5) {
+                        repsVal = "2 (Cluster)";
+                        setsVal = 5;
+                        noteStr = "Leveling Up: Short bursts of 2 reps with 20s micro-rests.";
+                    } else if (maxReps >= 5) {
+                        repsVal = "8-10";
+                        noteStr = "Muscle Growth: Standard sets to maximize size. Leave 1 in the tank.";
+                    }
+
                     workout.exercises.push({ 
+                        type: 'mastery',
                         name: exerciseName, 
-                        sets: isHighVolume ? 5 : (isDeload ? 2 : 3), 
-                        reps: "8-10", 
-                        note: "Keep your body straight like a board. Push the floor away fast.", 
+                        sets: setsVal, 
+                        reps: repsVal, 
+                        note: noteStr, 
                         rest: "3 minutes",
-                        tempo: coachTempo
+                        tempo: coachTempo,
+                        metric: "What did you hit?",
+                        targetReps: repsVal
                     });
                 }
 
-                if (session.id === 'Day B' && formData.strengthGoals.includes("pull")) {
-                    const exerciseName = formData.pullVariation || "Linear Pull";
+                // 3. THE BUILDER (Hypertrophy)
+                if (workout.exercises.length < 5) {
+                    const finishers = [
+                        { name: "Pause and Hold Plank", note: "Leveling up: Hold tight like a board." },
+                        { name: "Squeeze Glute Bridges", note: "The Lift: Squeeze hard at the top." },
+                        { name: "Pike Push Prep", note: "Shoulder Builder: Focus on the push away." }
+                    ];
+                    const fin = finishers[d % finishers.length];
                     workout.exercises.push({ 
-                        name: exerciseName, 
-                        sets: isHighVolume ? 5 : (isDeload ? 2 : 3), 
-                        reps: "8-10", 
-                        note: "Pull your elbows to your hips. Squeeze hard at the top.", 
-                        rest: "3 minutes",
-                        tempo: coachTempo
+                        type: 'builder',
+                        name: fin.name, 
+                        sets: "3", 
+                        reps: "12-15", 
+                        note: fin.note, 
+                        rest: "60 seconds",
+                        metric: "Reps completed",
+                        targetReps: "15"
                     });
                 }
 
-                if (session.id === 'Day C' && formData.strengthGoals.includes("squat")) {
-                    workout.exercises.push({ 
-                        name: "Pistol Squat Level-Up", 
-                        sets: isHighVolume ? 4 : (isDeload ? 2 : 3), 
-                        reps: "5 per side", 
-                        note: "Balance on one leg. Sit back as if finding a chair.", 
-                        rest: "2 minutes",
-                        tempo: coachTempo
-                    });
-                }
-
-                // 3. Endurance
-                if (formData.focus.includes("endurance") && (session.id === 'Day D' || session.id === 'Day E')) {
+                // Endurance Case
+                if (session.id === 'Day D' && formData.focus.includes("endurance")) {
                     const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
                     workout.exercises.push({ 
-                        name: `Level Up: ${eType}`, 
+                        type: 'mastery',
+                        name: `Engine Build: ${eType}`, 
                         sets: "1", 
                         reps: isHighVolume ? "6 km" : "4 km", 
-                        note: "Keep breathing through your nose. Move at a steady pace.", 
+                        note: "Move at a steady pace. Breathe through your nose.", 
                         rest: "Cooldown",
-                        tempo: "Steady State"
-                    });
-                }
-
-                // 4. Core / Finishers
-                if (workout.exercises.length < 5) {
-                    workout.exercises.push({ 
-                        name: "Pause and Hold Plank", 
-                        sets: "3", 
-                        reps: "45s", 
-                        note: "Tense your whole body. Don't let your hips sag.", 
-                        rest: "60 seconds"
+                        tempo: "Steady State",
+                        metric: "Distance / Time",
+                        targetReps: isHighVolume ? "6km" : "4km"
                     });
                 }
 
@@ -482,7 +502,7 @@ function renderDashboard(data) {
             </div>
             <div class="info-card">
                 <div class="info-label">Started</div>
-                <div class="info-value">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString() : "Not Started"}</div>
+                <div class="info-value">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Not Started"}</div>
             </div>
         `;
     }
@@ -535,13 +555,28 @@ function renderWorkout(container, workout) {
                 <span class="badge">${workout.duration} min</span>
             </div>
             <div class="exercise-meta">
-                ${workout.exercises.map(ex => `
+                ${workout.exercises.map((ex, idx) => `
                     <div class="exercise-box">
                         <div class="exercise-header">
                             <div class="exercise-name">${ex.name}</div>
                             <div class="mini-pill">${ex.sets} x ${ex.reps}</div>
                         </div>
                         <div class="exercise-note">${ex.note}</div>
+                        
+                        ${ex.metric ? `
+                            <div class="tracking-stats" style="margin: 15px 0; display: flex; gap: 10px; align-items: center;">
+                                <div style="flex: 1;">
+                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Metric (${ex.metric})</div>
+                                    <input type="text" class="log-input" placeholder="${ex.targetReps || 'Stats'}" data-ex-idx="${idx}" style="width: 100%; background: #0f172a; border: 1px solid rgba(148,163,184,0.2); padding: 8px; border-radius: 6px; color: #fff; font-size: 0.9rem;">
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Load / Band</div>
+                                    <input type="text" class="load-input" placeholder="e.g. Blue Band" data-ex-idx="${idx}" style="width: 100%; background: #0f172a; border: 1px solid rgba(148,163,184,0.2); padding: 8px; border-radius: 6px; color: #fff; font-size: 0.9rem;">
+                                </div>
+                                <button class="btn primary save-log-btn" data-ex-idx="${idx}" style="margin-top: 18px; padding: 8px 12px; font-size: 0.8rem;">Log Set</button>
+                            </div>
+                        ` : ''}
+
                         <div class="exercise-footer">
                             <span class="meta-item">Tempo: ${ex.tempo || 'Natural'}</span>
                             <span class="meta-item">Rest: ${ex.rest || '60s'}</span>
@@ -551,4 +586,27 @@ function renderWorkout(container, workout) {
             </div>
         </div>
     `;
+
+    // Add event listeners for logging
+    container.querySelectorAll(".save-log-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            const idx = e.target.dataset.exIdx;
+            const logInput = container.querySelector(`.log-input[data-ex-idx="${idx}"]`);
+            const loadInput = container.querySelector(`.load-input[data-ex-idx="${idx}"]`);
+            
+            if (logInput.value || loadInput.value) {
+                const originalText = btn.textContent;
+                btn.textContent = "Saved";
+                btn.classList.add("good");
+                
+                // Persistence simulation
+                console.log(`Log saved for ${workout.exercises[idx].name}: ${logInput.value} @ ${loadInput.value}`);
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove("good");
+                }, 2000);
+            }
+        });
+    });
 }
