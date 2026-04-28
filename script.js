@@ -53,6 +53,7 @@ function initPlanner() {
         "days", "session-length",
         "push-variation", "push-max", 
         "pull-variation", "pull-assist", "pull-max", 
+        "squat-variation", "squat-max", "wall-sit",
         "plank", "mile", "run-duration", "run-distance", "start-date"
     ];
 
@@ -93,6 +94,12 @@ function initPlanner() {
                 const vari = document.getElementById("pullVariation")?.value;
                 return formData.strengthGoals.includes("pull") && vari !== "none";
             }
+            if (step === "squat-variation") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
+            if (step === "squat-max") {
+                const vari = document.getElementById("squatVariation")?.value;
+                return (formData.strengthGoals.includes("squat") || formData.focus.includes("strength")) && vari !== "none";
+            }
+            if (step === "wall-sit") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
 
             // Endurance specific fields
             if (step === "mile" || step === "run-duration" || step === "run-distance") {
@@ -229,6 +236,16 @@ function initPlanner() {
             formData.pullupMax = parseInt(document.getElementById("pullupMax").value);
             if (isNaN(formData.pullupMax)) return error("Enter your max reps.");
         }
+        if (stepId === "squat-variation") {
+            formData.squatVariation = document.getElementById("squatVariation").value;
+        }
+        if (stepId === "squat-max") {
+            formData.squatMax = parseInt(document.getElementById("squatMax").value);
+            if (isNaN(formData.squatMax)) return error("Enter your max reps.");
+        }
+        if (stepId === "wall-sit") {
+            formData.wallSit = parseInt(document.getElementById("wallSit").value) || 0;
+        }
         if (stepId === "plank") {
             formData.plankMax = parseInt(document.getElementById("plankMax").value);
             if (isNaN(formData.plankMax)) return error("Enter your plank hold.");
@@ -278,6 +295,12 @@ function initPlanner() {
         }
         if (formData.pushVariation && formData.pushVariation !== "none") {
             html += `<div class="summary-item"><div class="summary-label">Hardest Push</div><div class="summary-value">${formData.pushVariation}</div></div>`;
+        }
+        if (formData.pullVariation && formData.pullVariation !== "none") {
+            html += `<div class="summary-item"><div class="summary-label">Hardest Pull</div><div class="summary-value">${formData.pullVariation}</div></div>`;
+        }
+        if (formData.squatVariation && formData.squatVariation !== "none") {
+            html += `<div class="summary-item"><div class="summary-label">Hardest Squat</div><div class="summary-value">${formData.squatVariation}</div></div>`;
         }
         
         html += `</div>`;
@@ -401,11 +424,11 @@ function initPlanner() {
 
                 if (session.id === 'Day A') {
                     // THE PRIMER (Warmup includes mobility)
-                    workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "2", reps: "10", note: "Get your upper back moving.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Wrist Circles", sets: "2", reps: "10", note: "Prep the joints.", rest: `${baseRest / 2}s` });
+                    workout.exercises.push({ type: 'primer', name: "Arm Circles & Shoulder Rolls", sets: "2", reps: "10", note: "Forward and backward circles.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Wrist Rotations", sets: "2", reps: "10", note: "Roll wrists to prep joints.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
-                    let exerciseName = formData.pushVariation || "Floor Push";
+                    let exerciseName = formData.pushVariation || "Knee Push-ups";
                     let maxReps = formData.pushupMax || 0;
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
@@ -426,14 +449,14 @@ function initPlanner() {
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
                     // THE BUILDER: Skill-oriented Push exercises only
-                    let builder1 = { name: "Close Grip Push", note: "Triceps and chest focus." };
-                    let builder2 = { name: "Tricep Extensions", note: "Tricep Isolation." };
+                    let builder1 = { name: "Incline Push-ups (Hands Elevated)", note: "Triceps and chest focus." };
+                    let builder2 = { name: "Tricep Dips (Off a Chair)", note: "Tricep Isolation." };
                     
                     if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
-                        builder1 = { name: "Pike Push Downs", note: "Shoulder strength for vertical push." };
-                        builder2 = { name: "Wall Handstand Hold", note: "Build core and shoulder stability." };
+                        builder1 = { name: "Pike Push Downs or Downward Dog Push-ups", note: "Shoulder strength for vertical push." };
+                        builder2 = { name: "Plank Hold", note: "Build core and shoulder stability." };
                     } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
-                        builder1 = { name: "Archer Pushups", note: "Unilateral strength focus." };
+                        builder1 = { name: "Archer Pushups or Wide Push-ups", note: "Unilateral strength focus." };
                         builder2 = { name: "Plank Shoulder Taps", note: "Anti-rotation core hold." };
                     }
 
@@ -442,11 +465,11 @@ function initPlanner() {
 
                 } else if (session.id === 'Day B') {
                     // THE PRIMER
-                    workout.exercises.push({ type: 'primer', name: "Shoulder Circles", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Bar Hangs", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s` });
+                    workout.exercises.push({ type: 'primer', name: "Shoulder Shrugs & Rolls", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Dead Hang or Scapula Pulls", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
-                    let exerciseName = formData.pullVariation || "Linear Pull";
+                    let exerciseName = formData.pullVariation || "Band-assisted Pull-ups or Bodyweight Rows";
                     let maxReps = formData.pullupMax || 0;
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
@@ -467,15 +490,15 @@ function initPlanner() {
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
                     // THE BUILDER: Skill-oriented Pull exercises only
-                    let builder1 = { name: "Bodyweight Rows", note: "Back Builder." };
-                    let builder2 = { name: "Bicep Curls (Band)", note: "Bicep Builder." };
+                    let builder1 = { name: "Negative/Eccentric Pull-ups or Rows", note: "Back Builder. Jump up and lower slowly." };
+                    let builder2 = { name: "Bicep Curls (Dumbbell or Band)", note: "Bicep Builder." };
                     
                     if (formData.pullSkill && formData.pullSkill.includes('muscle-up')) {
-                        builder1 = { name: "Explosive High Pulls", note: "Train speed for the transition." };
-                        builder2 = { name: "Straight Bar Dips", note: "The top half of the movement." };
+                        builder1 = { name: "Explosive Band-Assisted Pull-ups", note: "Train speed for the transition." };
+                        builder2 = { name: "Tricep Dips (Bars or Chair)", note: "The top half of the movement." };
                     } else if (formData.pullSkill && formData.pullSkill.includes('one-arm-pull')) {
-                        builder1 = { name: "Archer Pullups", note: "Unilateral vertical pull." };
-                        builder2 = { name: "Uneven Grip Holds", note: "Lock off strength." };
+                        builder1 = { name: "Uneven Pull-ups (One hand on towel)", note: "Unilateral vertical pull." };
+                        builder2 = { name: "Active Hangs", note: "Lock off strength." };
                     }
 
                     workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
@@ -483,49 +506,66 @@ function initPlanner() {
 
                 } else if (session.id === 'Day C') {
                     // THE PRIMER
-                    workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "2", reps: "10", note: "Sit deep, breathe easy.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: `${baseRest / 2}s` });
+                    workout.exercises.push({ type: 'primer', name: "Deep Squat Hold (Use support if needed)", sets: "2", reps: "15s", note: "Sit deep, breathe easy.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Bodyweight Glute Bridges", sets: "2", reps: "10", note: "Squeeze glutes at top.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE 
-                    let exerciseName = "Pistol Squat Level-Up";
-                    let repsVal = "3";
+                    let exerciseName = (formData.squatVariation && formData.squatVariation !== "none") ? formData.squatVariation : "Regular Bodyweight Squat";
+                    let maxReps = formData.squatMax || 0;
+                    let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
+                    let noteStr = `Focus on depth and control.`;
+                    
+                    if (maxReps > 0 && maxReps < 5) {
+                        repsVal = "3";
+                        setsVal = ageMaxSets;
+                        noteStr = "Power: Low reps, high focus.";
+                    } else if (maxReps >= 5 && maxReps <= 15) {
+                        repsVal = `${Math.max(1, maxReps - 2)}`;
+                        noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
+                    } else if (maxReps > 15) {
+                        repsVal = `${ageRepCap}`;
+                    }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
-                    let builder1 = { name: "Glute Squeeze Bridges", note: "Glute strength for balance." };
-                    let builder2 = { name: "Assisted Sissy Squats", note: "Quad isolation." };
+                    let builder1 = { name: "Box Step-Ups or Lunges", note: "Unilateral leg strength." };
+                    let builder2 = { name: "Calf Raises (Off a step)", note: "Calf isolation." };
 
                     workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day D') {
                     const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
+                    
+                    workout.exercises.push({ type: 'primer', name: "Dynamic Leg Swings", sets: "1", reps: "10 per leg", note: "Forward/after and side-to-side.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "High Knees in Place", sets: "1", reps: "30s", note: "Light and bouncy to prep for engine work.", rest: "None" });
+
                     workout.exercises.push({ 
                         type: 'mastery',
                         name: `The Engine: ${eType}`, 
                         sets: "1", 
-                        reps: isHighVolume ? "6 km" : "4 km", 
+                        reps: isHighVolume ? "60 min" : "40 min", 
                         note: "Steady Pace, Nose Breathing. Easy Pace.", 
                         rest: "Cooldown",
                         tempo: "Steady State",
-                        metric: "Distance / Time",
-                        targetReps: isHighVolume ? "6km" : "4km"
+                        metric: "Time",
+                        targetReps: isHighVolume ? "60 min" : "40 min"
                     });
                 } else if (session.id === 'Day E') {
-                    workout.exercises.push({ type: 'primer', name: "Full Body Mobility", sets: "1", reps: "10 min", note: "Light movement. Easy pace.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Joint Rotations", sets: "1", reps: "5 min", note: "Keep everything loose.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Cat-Cow Stretch", sets: "1", reps: "10", note: "Flow with your breath. Spine mobility.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Hip Flexor Kneeling Stretch", sets: "1", reps: "60s per leg", note: "Tuck pelvis under gently.", rest: "None" });
+                    workout.exercises.push({ type: 'primer', name: "Child's Pose", sets: "1", reps: "2 min", note: "Relax and focus on deep breathing.", rest: "None" });
                 }
 
                 // Add Cooldown properly to the exercises list
                 workout.exercises.push({
                     type: 'cooldown',
-                    name: "Light Walk & Stretching",
-                    note: "Bring the heart rate down safely.",
+                    name: "Light Walk & Specific Stretching",
+                    note: "Walk for 2 minutes to bring heart rate down. Then perform static stretches: standing quad stretch (30s/leg), toe touch/hamstring stretch (60s), and chest stretch against a doorway (30s).",
                     tempo: "Natural Flow",
                     sets: "1",
-                    reps: "5 min",
+                    reps: "5-10 min",
                     rest: "None"
                 });
 
@@ -655,6 +695,23 @@ function renderDashboard(data) {
     const dayPickerContainer = document.getElementById("dayPickerContainer");
     const weekTrackerBox = document.getElementById("weekTrackerBox");
     const weeksAheadBox = document.getElementById("weeksAheadBox");
+    const recordsBox = document.getElementById("recordsBox");
+
+    if (recordsBox && data.plan && data.plan.formData) {
+        const fd = data.plan.formData;
+        let html = '';
+        if (fd.pushupMax) html += `<div class="info-card"><div class="info-label">Max Push-ups</div><div class="info-value">${fd.pushupMax}</div></div>`;
+        if (fd.pullupMax) html += `<div class="info-card"><div class="info-label">Max Pull-ups</div><div class="info-value">${fd.pullupMax}</div></div>`;
+        if (fd.squatMax) html += `<div class="info-card"><div class="info-label">Max Squats</div><div class="info-value">${fd.squatMax}</div></div>`;
+        if (fd.plankMax) html += `<div class="info-card"><div class="info-label">Plank Hold</div><div class="info-value">${fd.plankMax}s</div></div>`;
+        if (fd.wallSit) html += `<div class="info-card"><div class="info-label">Wall Sit</div><div class="info-value">${fd.wallSit}s</div></div>`;
+        
+        if (html) {
+            recordsBox.innerHTML = html;
+        } else {
+            recordsBox.innerHTML = `<div class="empty-box">No key records recorded.</div>`;
+        }
+    }
 
     if (data.plan && data.plan.weeks) {
         const weekWorkouts = data.plan.weeks[0].workouts;
@@ -771,11 +828,11 @@ function renderWorkout(container, workout, dataLogs) {
                             <div class="exercise-name" style="font-size: 1.15rem;">${ex.name}</div>
                         </div>
                         <div class="exercise-note">${ex.note}</div>
-                        ${ex.tempo ? `<div style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 16px;"><strong>Tempo:</strong> ${ex.tempo}</div>` : ''}
                         
                         <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
                             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; font-weight: bold; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">
                                 <div style="flex: 1;">Set</div>
+                                <div style="flex: 1.5; text-align: center;">Tempo</div>
                                 <div style="flex: 1; text-align: center;">Goal Reps</div>
                                 <div style="flex: 1; text-align: center;">Rest</div>
                                 <div style="flex: 1; text-align: right;">Actual</div>
@@ -784,6 +841,7 @@ function renderWorkout(container, workout, dataLogs) {
                             ${ex.setDetails.map(set => `
                                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
                                     <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.95rem;">${set.setNumber}</div>
+                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
                                     <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.95rem;">${set.targetReps}</div>
                                     <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
                                     <div style="flex: 1; text-align: right;">
