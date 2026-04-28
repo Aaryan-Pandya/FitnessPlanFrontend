@@ -304,8 +304,11 @@ p {
 
 .planner-card,
 .planner-summary-card {
-  min-height: 520px;
+  min-height: 550px;
   position: relative;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
 }
 
 .stepper-top {
@@ -342,7 +345,7 @@ p {
 .planner-step.active {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 2.5rem;
 }
 
 .question-label {
@@ -425,13 +428,16 @@ p {
 
 .button-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 1.25rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
 }
 
 
 .planner-actions {
-  margin-top: 18px;
+  margin-top: 2rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  padding-top: 1.5rem;
 }
 
 

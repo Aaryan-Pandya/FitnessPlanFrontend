@@ -219,22 +219,26 @@ function initPlanner() {
     }
 
     function error(msg) {
-        // Human-friendly error translation
-        let cleanMsg = msg;
-        if (msg.includes("401")) cleanMsg = "Authentication expired. Please log in again.";
-        if (msg.includes("404")) cleanMsg = "Service temporarily unavailable. Please try again later.";
-        if (msg.includes("Failed to fetch")) cleanMsg = "Connection lost. Check your internet.";
+        // Invisible Operator Protocol: Hide technical details
+        let cleanMsg = "We're fine-tuning your mastery track. Please try again.";
+        
+        if (msg.includes("Date of birth required")) cleanMsg = "Please enter your date of birth to continue.";
+        if (msg.includes("Pick at least 1 focus")) cleanMsg = "Select a primary focus to tailor your plan.";
+        if (msg.includes("Enter your max reps")) cleanMsg = "A quick rep count helps calibrate your intensity.";
+        if (msg.includes("Start date required")) cleanMsg = "Set a start date to lock in your 4-week journey.";
+        if (msg.includes("Incorrect Password")) cleanMsg = "Mastery requires the right keys. Try your password again.";
+        if (msg.includes("401") || msg.includes("auth")) cleanMsg = "Your session expired. Please log in back in.";
 
         statusBox.textContent = cleanMsg;
         statusBox.className = "status-box bad";
 
-        // Clutter Control: Auto-fade error after 4 seconds
+        // Clutter Control: Auto-fade error after 3 seconds
         setTimeout(() => {
             if (statusBox.className.includes("bad")) {
-                statusBox.textContent = "Waiting for your input...";
+                statusBox.textContent = "Answer the questions to build your plan.";
                 statusBox.className = "status-box";
             }
-        }, 4000);
+        }, 3000);
 
         return false;
     }
@@ -255,6 +259,13 @@ function initPlanner() {
         
         html += `</div>`;
         preview.innerHTML = formData.focus.length === 0 ? "Select your focus to see details." : html;
+        
+        // "Unlock" Animation: Pulse effect on items
+        const items = preview.querySelectorAll(".summary-item");
+        items.forEach(item => {
+            item.classList.add("pulse");
+            setTimeout(() => item.classList.remove("pulse"), 400);
+        });
         
         renderWeekPreview();
     }
