@@ -355,45 +355,80 @@ function initPlanner() {
         }
 
         let allowedDays = [];
-        const hasEndurance = formData.focus.includes("endurance") || formData.focus.includes("cardio");
-        const hasStrength = formData.focus.includes("strength");
-        const hasFlexibility = formData.focus.includes("flexibility");
-
-        if (formData.daysPerWeek === 5) {
-            allowedDays = ['Day A', 'Day B', 'Day C', 'Day D', 'Day E'];
-        } else {
-            if (hasStrength && hasEndurance) {
-                allowedDays = ['Day A', 'Day B', 'Day D'];
-            } else if (hasStrength && hasFlexibility) {
-                allowedDays = ['Day A', 'Day B', 'Day E'];
-            } else if (hasEndurance) {
-                allowedDays = ['Day D', 'Day E', 'Day A'];
-            } else {
-                allowedDays = ['Day A', 'Day B', 'Day C'];
-            }
+        const pool = [];
+        if (formData.strengthGoals.includes('push')) pool.push('push');
+        if (formData.strengthGoals.includes('pull')) pool.push('pull');
+        if (formData.strengthGoals.includes('squat')) pool.push('squat');
+        if (formData.enduranceType && formData.enduranceType.length > 0) {
+            formData.enduranceType.forEach(et => pool.push(`endurance_${et}`));
+        } else if (formData.focus.includes('endurance') || formData.focus.includes('cardio')) {
+            pool.push('endurance_Run');
         }
-        allowedDays.sort();
+        if (formData.focus.includes('flexibility') || formData.focus.includes('longevity')) {
+            pool.push('recovery');
+        }
+
+        if (pool.length === 0) pool.push('push');
+
+        const daysPerWeek = formData.daysPerWeek || 3;
+        const totalSlots = daysPerWeek * 2;
+        const twoWeekSchedule = [];
+        let pidx = 0;
+        for (let i = 0; i < totalSlots; i++) {
+            twoWeekSchedule.push(pool[pidx]);
+            pidx = (pidx + 1) % pool.length;
+        }
+
+        const dayLabels = [];
+        for (let i = 0; i < daysPerWeek; i++) {
+             dayLabels.push(String.fromCharCode(65 + i));
+        }
 
         for (let w = 1; w <= 4; w++) {
             const isDeload = (w === 4);
             const isHighVolume = (w === 3);
             const workouts = [];
 
-            for (let d = 0; d < allowedDays.length; d++) {
-                const sessionKey = allowedDays[d];
-                const session = sessionNames[sessionKey];
+            const startIndex = (w % 2 !== 0) ? 0 : daysPerWeek;
+            const weekSessions = twoWeekSchedule.slice(startIndex, startIndex + daysPerWeek);
+
+            for (let d = 0; d < weekSessions.length; d++) {
+                const sessionType = weekSessions[d];
+                
+                let sessionName = '';
+                let goalDesc = '';
+                
+                if (sessionType === 'push') {
+                    sessionName = 'The Push Path';
+                    goalDesc = "Chest, Shoulders & Triceps.";
+                } else if (sessionType === 'pull') {
+                    sessionName = 'The Pull Path';
+                    goalDesc = "Back, Biceps & Core.";
+                } else if (sessionType === 'squat') {
+                    sessionName = 'The Leg Path';
+                    goalDesc = "Quads, Glutes & Core.";
+                } else if (sessionType.startsWith('endurance_')) {
+                    const eType = sessionType.split('_')[1];
+                    sessionName = 'The Engine: ' + eType;
+                    goalDesc = "Steady Pace, Nose Breathing.";
+                } else if (sessionType === 'recovery') {
+                    sessionName = "Active Recovery";
+                    goalDesc = "Full body mobility and light movement.";
+                }
+
+                const dayLabel = 'Day ' + dayLabels[d];
                 
                 const workout = {
-                    day: session.id,
-                    name: `${session.id}: ${session.name}`,
+                    day: dayLabel,
+                    name: `${dayLabel}: ${sessionName}`,
                     duration: formData.sessionLength || 60,
-                    description: session.goalDesc,
+                    description: goalDesc,
                     exercises: []
                 };
 
                 const eliteTempo = "3s Down, 1s Pause, Fast Up, 1s Squeeze";
 
-                if (session.id === 'Day A') {
+                if (sessionType === 'push') {
                     // THE PRIMER (Warmup includes mobility)
                     workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "2", reps: "10", note: "Get your upper back moving.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Wrist Circles", sets: "2", reps: "10", note: "Prep the joints.", rest: `${baseRest / 2}s` });
@@ -434,7 +469,7 @@ function initPlanner() {
                     workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
-                } else if (session.id === 'Day B') {
+                } else if (sessionType === 'pull') {
                     // THE PRIMER
                     workout.exercises.push({ type: 'primer', name: "Shoulder Circles", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Bar Hangs", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s` });
@@ -475,7 +510,7 @@ function initPlanner() {
                     workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
-                } else if (session.id === 'Day C') {
+                } else if (sessionType === 'squat') {
                     // THE PRIMER
                     workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "2", reps: "10", note: "Sit deep, breathe easy.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: `${baseRest / 2}s` });
@@ -485,12 +520,6 @@ function initPlanner() {
                     let repsVal = "3";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
-                    
-                    if (formData.focus.includes("endurance")) {
-                         exerciseName = "High Rep Lunges";
-                         repsVal = `${ageRepCap}`;
-                         noteStr = "Build muscular endurance for the legs.";
-                    }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
@@ -500,8 +529,8 @@ function initPlanner() {
                     workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
-                } else if (session.id === 'Day D') {
-                    const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
+                } else if (sessionType.startsWith('endurance_')) {
+                    const eType = sessionType.split('_')[1];
                     workout.exercises.push({ 
                         type: 'mastery',
                         name: `The Engine: ${eType}`, 
@@ -513,7 +542,7 @@ function initPlanner() {
                         metric: "Distance / Time",
                         targetReps: isHighVolume ? "6km" : "4km"
                     });
-                } else if (session.id === 'Day E') {
+                } else if (sessionType === 'recovery') {
                     workout.exercises.push({ type: 'primer', name: "Full Body Mobility", sets: "1", reps: "10 min", note: "Light movement. Easy pace.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Joint Rotations", sets: "1", reps: "5 min", note: "Keep everything loose.", rest: "None" });
                 }
