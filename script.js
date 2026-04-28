@@ -312,7 +312,13 @@ function initPlanner() {
 
         const weeks = [];
         const daysCount = formData.daysPerWeek || 3;
-        const workoutNames = ["Push Focus", "Pull Focus", "Leg Focus", "Skills", "Full Body"];
+        const sessionNames = [
+            { id: 'Day A', name: "Push Power", goal: "Chest, Shoulders & Triceps." },
+            { id: 'Day B', name: "Pull Power", goal: "Back, Biceps & Core." },
+            { id: 'Day C', name: "Lower Focus", goal: "Quads, Glutes & Calves." },
+            { id: 'Day D', name: "Endurance & Skill", goal: "Running & Mastery Work." },
+            { id: 'Day E', name: "Mastery Recovery", goal: "Light movement & catch-up." }
+        ];
 
         for (let w = 1; w <= 4; w++) {
             const isDeload = (w === 4);
@@ -320,89 +326,84 @@ function initPlanner() {
             const workouts = [];
 
             for (let d = 0; d < daysCount; d++) {
+                const session = sessionNames[d % sessionNames.length];
                 const workout = {
-                    day: d + 1,
-                    name: workoutNames[d % workoutNames.length],
+                    day: session.id,
+                    name: `${session.id}: ${session.name}`,
                     duration: formData.sessionLength || 60,
-                    description: "",
+                    description: session.goal,
                     exercises: []
                 };
 
-                // 1. Mobility & Prep
-                const pushSkill = formData.pushSkill ? formData.pushSkill[0] : "";
-                const pullSkill = formData.pullSkill ? formData.pullSkill[0] : "";
-                
-                if (pushSkill === "hspu") {
-                    workout.exercises.push({ name: "Wrist & T-Spine Mobility", sets: "1", reps: "5 min", note: "Crucial for HSPU overhead path." });
-                }
-                if (pushSkill === "one-arm") {
-                    workout.exercises.push({ name: "Shoulder Taps", sets: "3", reps: "10 per side", note: "Mandatory warm-up for anti-rotation stability." });
-                }
-                if (formData.strengthGoals.includes("squat")) {
-                    workout.exercises.push({ name: "Ankle & Hip Opening", sets: "1", reps: "5 min", note: "Deep squat mobility focus." });
+                // Simple Tempo Translation (Coach Protocol)
+                const coachTempo = "3s Down, 1s Hold, Fast Up, 1s Squeeze";
+
+                // 1. Mobility (Simple Language)
+                if (session.id === 'Day A') {
+                    workout.exercises.push({ name: "Upper Back Flexibility", sets: "1", reps: "5 min", note: "Keep your chest tall.", rest: "None" });
+                } else if (session.id === 'Day C') {
+                    workout.exercises.push({ name: "Ankle & Hip Opening", sets: "1", reps: "5 min", note: "Sit deep, breathe easy.", rest: "None" });
                 }
 
-                // 2. Main Strength Work (The Mastery System)
-                if (formData.focus.includes("strength")) {
-                    formData.strengthGoals.forEach(goal => {
-                        let exerciseName = "Skill Movement";
-                        let setsNum = isHighVolume ? 5 : (isDeload ? 2 : 3);
-                        let repsNum = "8-10";
-                        let noteStr = "Tempo 3-1-X-1. RIR 2 (Leave 2 in the tank).";
-                        let restTime = "3 minutes";
-
-                        if (goal === "push") {
-                            exerciseName = formData.pushVariation || "Linear Push";
-                            const maxVal = formData.pushupMax || 0;
-                            if (maxVal > 0 && maxVal < 5) {
-                                setsNum = 5;
-                                repsNum = "2 (Cluster)";
-                                noteStr = "Form first. Reset between every rep.";
-                            }
-                            if (pushSkill === "hspu") noteStr += " Focus on vertical leverage path.";
-                        } else if (goal === "pull") {
-                            exerciseName = formData.pullVariation || "Linear Pull";
-                            const maxVal = formData.pullupMax || 0;
-                            if (maxVal > 0 && maxVal < 5) {
-                                setsNum = 5;
-                                repsNum = "2 (Cluster)";
-                            }
-                            if (pullSkill === "muscle-up") noteStr = "Explosive Chest-to-Bar tempo. Squeeze at top.";
-                        } else if (goal === "squat") {
-                            exerciseName = "Pistol Squat Progression";
-                            noteStr = "Focus on balance and ankle tracking.";
-                        }
-                        
-                        workout.exercises.push({ name: exerciseName, sets: setsNum, reps: repsNum, note: noteStr, rest: restTime });
-                    });
-                }
-
-                // 3. Endurance / Cardio Component
-                if (formData.focus.includes("endurance")) {
-                    const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
-                    let setsE = isHighVolume ? "6 km" : (isDeload ? "3 km" : "4 km");
-                    let repsE = "Zone 2";
-                    let noteE = "Keep breathing through nose. Constant pace.";
-                    let restE = "90 seconds";
-
-                    workout.exercises.push({ name: `Endurance: ${eType}`, sets: setsE, reps: repsE, note: noteE, rest: restE });
-                }
-
-                // 4. Weekly Mental Challenge
-                if (d === daysCount - 1) {
-                    const challenges = ["Max Plank Hold", "Max Wall Sit", "Burpee AMRAP (2 min)", "Cold Shower (3 min)"];
+                // 2. Mastery Movements (Limit to 5 total)
+                if (session.id === 'Day A' && formData.strengthGoals.includes("push")) {
+                    const exerciseName = formData.pushVariation || "Floor Push";
                     workout.exercises.push({ 
-                        name: "Mental Challenge", 
-                        sets: "1", 
-                        reps: "MAX", 
-                        note: challenges[w - 1] 
+                        name: exerciseName, 
+                        sets: isHighVolume ? 5 : (isDeload ? 2 : 3), 
+                        reps: "8-10", 
+                        note: "Keep your body straight like a board. Push the floor away fast.", 
+                        rest: "3 minutes",
+                        tempo: coachTempo
                     });
                 }
 
-                // Descriptions
-                if (isDeload) workout.description = "Recovery Week: System flush and motor pattern mastery.";
-                else if (isHighVolume) workout.description = "Peak Week: High-intensity volume for supercompensation.";
-                else workout.description = "Base Building: Hierarchical mastery of movement patterns.";
+                if (session.id === 'Day B' && formData.strengthGoals.includes("pull")) {
+                    const exerciseName = formData.pullVariation || "Linear Pull";
+                    workout.exercises.push({ 
+                        name: exerciseName, 
+                        sets: isHighVolume ? 5 : (isDeload ? 2 : 3), 
+                        reps: "8-10", 
+                        note: "Pull your elbows to your hips. Squeeze hard at the top.", 
+                        rest: "3 minutes",
+                        tempo: coachTempo
+                    });
+                }
+
+                if (session.id === 'Day C' && formData.strengthGoals.includes("squat")) {
+                    workout.exercises.push({ 
+                        name: "Pistol Squat Level-Up", 
+                        sets: isHighVolume ? 4 : (isDeload ? 2 : 3), 
+                        reps: "5 per side", 
+                        note: "Balance on one leg. Sit back as if finding a chair.", 
+                        rest: "2 minutes",
+                        tempo: coachTempo
+                    });
+                }
+
+                // 3. Endurance
+                if (formData.focus.includes("endurance") && (session.id === 'Day D' || session.id === 'Day E')) {
+                    const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
+                    workout.exercises.push({ 
+                        name: `Level Up: ${eType}`, 
+                        sets: "1", 
+                        reps: isHighVolume ? "6 km" : "4 km", 
+                        note: "Keep breathing through your nose. Move at a steady pace.", 
+                        rest: "Cooldown",
+                        tempo: "Steady State"
+                    });
+                }
+
+                // 4. Core / Finishers
+                if (workout.exercises.length < 5) {
+                    workout.exercises.push({ 
+                        name: "Pause and Hold Plank", 
+                        sets: "3", 
+                        reps: "45s", 
+                        note: "Tense your whole body. Don't let your hips sag.", 
+                        rest: "60 seconds"
+                    });
+                }
 
                 workouts.push(workout);
             }
@@ -415,20 +416,18 @@ function initPlanner() {
         generateBtn.disabled = true;
         statusBox.textContent = "Crafting your personalized 4-week plan...";
         
-        // Scientific logic happens on client
         const fullPlan = generateScientificPlan();
         
-        // Static persistence
         const planToSave = {
             formData: formData,
             weeks: fullPlan,
             createdAt: new Date().toISOString(),
+            activeDay: 'Day A', // Store default active day
             streak: 0
         };
         
         saveLocalPlan(planToSave);
         
-        // Mocking a network delay for quality feel
         setTimeout(() => {
             window.location.href = "./dashboard.html";
         }, 1500);
@@ -474,11 +473,6 @@ function renderDashboard(data) {
     const streakEl = document.getElementById("currentStreakNumber");
     if (streakEl) streakEl.textContent = data.streak || 0;
 
-    const streakTxt = document.getElementById("currentStreakText");
-    if (streakTxt) {
-        streakTxt.textContent = data.streak > 0 ? "Momentum is high. Keep going." : "The best time to start is now.";
-    }
-
     const profileBox = document.getElementById("profileBox");
     if (profileBox && data.user) {
         profileBox.innerHTML = `
@@ -488,40 +482,51 @@ function renderDashboard(data) {
             </div>
             <div class="info-card">
                 <div class="info-label">Started</div>
-                <div class="info-value">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString() : "N/A"}</div>
-            </div>
-        `;
-    }
-
-    const planBox = document.getElementById("currentPlanBox");
-    if (planBox && data.plan) {
-        const fd = data.plan.formData;
-        planBox.innerHTML = `
-            <div class="info-card">
-                <div class="info-label">Target</div>
-                <div class="info-value">${fd.focus.join(", ")}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">Volume</div>
-                <div class="info-value">${fd.daysPerWeek} Days/Week</div>
+                <div class="info-value">${data.plan ? new Date(data.plan.formData.startDate).toLocaleDateString() : "Not Started"}</div>
             </div>
         `;
     }
 
     const todayBox = document.getElementById("todayBox");
-    const todayStatus = document.getElementById("todayStatus");
-    if (todayBox && data.today) {
-        todayStatus.textContent = "Workout session active.";
-        renderWorkout(todayBox, data.today);
+    const dayPickerContainer = document.getElementById("dayPickerContainer");
+
+    if (data.plan && data.plan.weeks) {
+        const weekWorkouts = data.plan.weeks[0].workouts;
+        
+        // Render Day Picker
+        if (dayPickerContainer) {
+            const days = ['Day A', 'Day B', 'Day C', 'Day D', 'Day E'].filter(d => 
+                weekWorkouts.some(w => w.day === d)
+            );
+            
+            dayPickerContainer.innerHTML = days.map(day => `
+                <button class="day-tab ${data.plan.activeDay === day ? 'active' : ''}" data-day="${day}">
+                    ${day}
+                </button>
+            `).join("");
+
+            dayPickerContainer.querySelectorAll(".day-tab").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const selectedDay = btn.dataset.day;
+                    data.plan.activeDay = selectedDay;
+                    saveLocalPlan(data.plan);
+                    renderDashboard(data);
+                });
+            });
+        }
+
+        const activeWorkout = weekWorkouts.find(w => w.day === data.plan.activeDay) || weekWorkouts[0];
+        renderWorkout(todayBox, activeWorkout);
     } else if (todayBox) {
-        todayStatus.textContent = "No plan active yet.";
         todayBox.innerHTML = `<div class="empty-box">Go to the <a href="./index.html" style="color: #60a5fa;">Planner</a> to start.</div>`;
     }
 }
 
 function renderWorkout(container, workout) {
+    if (!container || !workout) return;
+    
     container.innerHTML = `
-        <div class="today-card">
+        <div class="today-card animate-fadeIn">
             <div class="day-top">
                 <div>
                     <div class="day-label">${workout.name}</div>
@@ -531,15 +536,15 @@ function renderWorkout(container, workout) {
             </div>
             <div class="exercise-meta">
                 ${workout.exercises.map(ex => `
-                    <div class="exercise-box" style="margin-bottom: 12px; padding: 16px; background: rgba(15, 23, 42, 0.4); border-radius: 14px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <div class="exercise-name" style="font-size: 1.1rem; font-weight: 800; color: #60a5fa;">${ex.name}</div>
-                            <div class="mini-pill" style="font-size: 0.8rem; background: rgba(59,130,246,0.1); color: #60a5fa; padding: 4px 10px; border-radius: 99px;">${ex.sets} sets | ${ex.reps} reps</div>
+                    <div class="exercise-box">
+                        <div class="exercise-header">
+                            <div class="exercise-name">${ex.name}</div>
+                            <div class="mini-pill">${ex.sets} x ${ex.reps}</div>
                         </div>
-                        <div class="day-meta" style="font-size: 0.95rem; color: #cbd5e1; line-height: 1.5;">${ex.note || ""}</div>
-                        <div style="margin-top: 10px; display: flex; gap: 10px;">
-                            ${ex.rest ? `<span style="font-size: 0.75rem; background: rgba(148,163,184,0.1); padding: 4px 8px; border-radius: 6px;">Rest: ${ex.rest}</span>` : ""}
-                            <span style="font-size: 0.75rem; background: rgba(148,163,184,0.1); padding: 4px 8px; border-radius: 6px;">Tempo: 3-1-X-1</span>
+                        <div class="exercise-note">${ex.note}</div>
+                        <div class="exercise-footer">
+                            <span class="meta-item">Tempo: ${ex.tempo || 'Natural'}</span>
+                            <span class="meta-item">Rest: ${ex.rest || '60s'}</span>
                         </div>
                     </div>
                 `).join("")}
