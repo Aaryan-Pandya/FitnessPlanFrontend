@@ -518,6 +518,35 @@ function initPlanner() {
                     workout.exercises.push({ type: 'primer', name: "Joint Rotations", sets: "1", reps: "5 min", note: "Keep everything loose.", rest: "None" });
                 }
 
+                    workout.exercises.forEach((ex, idx) => {
+                        ex.id = `ex_${idx}`;
+                        let setsDetails = [];
+                        const numSets = parseInt(ex.sets, 10) || 1;
+                        const baseRepsStr = ex.reps || "10";
+                        const isTime = typeof baseRepsStr === "string" && (baseRepsStr.includes("min") || baseRepsStr.includes("s") || baseRepsStr.includes("km"));
+                        let baseRepNum = parseInt(baseRepsStr, 10) || baseRepsStr;
+
+                        for(let s=0; s < numSets; s++) {
+                            let currentTarget = baseRepsStr;
+                            if (!isTime && typeof baseRepNum === "number" && ex.type !== 'primer') {
+                                 let addedReps = 0;
+                                 if (w > 1 && w < 4) { 
+                                     let totalIncreases = w - 1; 
+                                     if (w === 3) totalIncreases = 2; 
+                                     let setsFromEnd = (numSets - 1) - s;
+                                     if (totalIncreases > setsFromEnd) addedReps = 1;
+                                 }
+                                 if (w === 4) {
+                                     addedReps = -2; 
+                                 }
+                                 currentTarget = Math.max(1, baseRepNum + addedReps).toString();
+                                 if (baseRepsStr.includes("Cluster")) currentTarget = "2";
+                            }
+                            setsDetails.push({ setNumber: s + 1, targetReps: currentTarget, rest: ex.rest || "60s" });
+                        }
+                        ex.setDetails = setsDetails;
+                    });
+
                 workouts.push(workout);
             }
             weeks.push({ week: w, workouts });
@@ -575,8 +604,7 @@ async function loadDashboardData() {
         user: user,
         plan: plan,
         streak: (plan ? plan.streak : 0),
-        // Simple logic for "today's workout"
-        today: (plan && plan.weeks ? plan.weeks[0].workouts[0] : null)
+        logs: JSON.parse(localStorage.getItem('fitnessplan_logs')) || { readiness: {}, reps: {} }
     };
 
     renderDashboard(data);
@@ -614,6 +642,8 @@ function renderDashboard(data) {
 
     const todayBox = document.getElementById("todayBox");
     const dayPickerContainer = document.getElementById("dayPickerContainer");
+    const weekTrackerBox = document.getElementById("weekTrackerBox");
+    const weeksAheadBox = document.getElementById("weeksAheadBox");
 
     if (data.plan && data.plan.weeks) {
         const weekWorkouts = data.plan.weeks[0].workouts;
@@ -624,11 +654,15 @@ function renderDashboard(data) {
                 weekWorkouts.some(w => w.day === d)
             );
             
-            dayPickerContainer.innerHTML = days.map(day => `
-                <button class="day-tab ${data.plan.activeDay === day ? 'active' : ''}" data-day="${day}">
-                    ${day}
-                </button>
-            `).join("");
+            dayPickerContainer.innerHTML = days.map(day => {
+                const dateKey = new Date().toDateString() + "_" + day;
+                const isDone = data.logs && data.logs.readiness && data.logs.readiness[dateKey] ? '<span style="color:#10b981; margin-left:4px;">✔</span>' : '';
+                return `
+                    <button class="day-tab ${data.plan.activeDay === day ? 'active' : ''}" data-day="${day}">
+                        ${day} ${isDone}
+                    </button>
+                `;
+            }).join("");
 
             dayPickerContainer.querySelectorAll(".day-tab").forEach(btn => {
                 btn.addEventListener("click", () => {
@@ -641,77 +675,176 @@ function renderDashboard(data) {
         }
 
         const activeWorkout = weekWorkouts.find(w => w.day === data.plan.activeDay) || weekWorkouts[0];
-        renderWorkout(todayBox, activeWorkout);
+        renderWorkout(todayBox, activeWorkout, data.logs);
+        
+        // Render This Week Tracker
+        if (weekTrackerBox) {
+            weekTrackerBox.innerHTML = weekWorkouts.map(w => `
+                <div class="info-card" style="padding: 12px; background: rgba(0,0,0,0.2);">
+                    <div style="font-size: 0.9rem; font-weight: bold; color: #fff;">${w.day}</div>
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">${w.description}</div>
+                </div>
+            `).join("");
+        }
+
+        // Render Weeks Ahead
+        if (weeksAheadBox) {
+            const upNext = data.plan.weeks.slice(1);
+            if (upNext.length === 0) {
+                 weeksAheadBox.innerHTML = `<div class="empty-box">No future weeks built yet.</div>`;
+            } else {
+                 weeksAheadBox.innerHTML = upNext.map(w => `
+                    <div style="margin-bottom: 24px; border-left: 2px solid #3b82f6; padding-left: 16px;">
+                        <h3 style="color: #60a5fa; margin-bottom: 12px;">Week ${w.week} ${w.week === 4 ? '(Deload)' : ''}</h3>
+                        <div class="week-grid">
+                            ${w.workouts.map(wk => `
+                                <div class="info-card" style="padding: 12px; background: rgba(0,0,0,0.2);">
+                                    <div style="font-size: 0.9rem; font-weight: bold; color: #fff;">${wk.day}</div>
+                                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">${wk.name}</div>
+                                </div>
+                            `).join("")}
+                        </div>
+                    </div>
+                `).join("");
+            }
+        }
+
     } else if (todayBox) {
         todayBox.innerHTML = `<div class="empty-box">Go to the <a href="./index.html" style="color: #60a5fa;">Planner</a> to start.</div>`;
     }
 }
 
-function renderWorkout(container, workout) {
+function renderWorkout(container, workout, dataLogs) {
     if (!container || !workout) return;
-    
-    container.innerHTML = `
-        <div class="today-card animate-fadeIn workout-grid">
-            <div class="day-top">
-                <div>
-                    <div class="day-label">${workout.name}</div>
-                    <div class="day-title">${workout.description}</div>
+
+    if (!dataLogs) dataLogs = { readiness: {}, reps: {} };
+    const dateKey = new Date().toDateString() + "_" + workout.day;
+    const isReady = dataLogs.readiness[dateKey] === true;
+
+    let readinessHTML = "";
+    if (workout.exercises.length > 0 && !isReady) {
+        readinessHTML = `
+            <div class="readiness-card" style="background: rgba(255,255,255,0.03); padding: 24px; border-radius: 16px; margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.1);">
+                <h3 style="margin-top: 0; color: #60a5fa; font-size: 1.25rem;">Readiness Tracker</h3>
+                <p style="font-size: 0.95rem; color: #cbd5e1; margin-bottom: 20px;">Unlock today's session by answering honestly.</p>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px;">Sleep (1=Poor, 5=Great)</label>
+                    <input type="range" id="sleepVal" min="1" max="5" value="3" style="width: 100%;">
                 </div>
-                <span class="badge">${workout.duration} min</span>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px;">Nutrition (1=Poor, 5=Great)</label>
+                    <input type="range" id="nutriVal" min="1" max="5" value="3" style="width: 100%;">
+                </div>
+                <div style="margin-bottom: 24px;">
+                    <label style="display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px;">Energy (1=Poor, 5=Great)</label>
+                    <input type="range" id="energyVal" min="1" max="5" value="3" style="width: 100%;">
+                </div>
+                <button id="unlockBtn" class="btn primary" style="width: 100%; padding: 12px; font-weight: bold;">Unlock Workout</button>
             </div>
-            <div class="exercise-meta">
-                ${workout.exercises.map((ex, idx) => `
+        `;
+    }
+
+    const warmup = workout.exercises.filter(ex => ex.type === 'primer');
+    const mainWork = workout.exercises.filter(ex => ex.type === 'mastery' || ex.type === 'builder');
+    const cooldown = [{ id: 'cd_1', type: 'cooldown', name: "Light Walk & Stretching", note: "Bring the heart rate down safely.", tempo: "Natural Flow", setDetails: [{ setNumber: 1, targetReps: "5 min", rest: "None" }] }];
+
+    function renderSection(title, exercises) {
+        if (!exercises || exercises.length === 0) return '';
+        return `
+            <div style="margin-bottom: 30px;">
+                <h3 style="color: #fff; font-size: 1.25rem; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px;">${title}</h3>
+                ${exercises.map(ex => `
                     <div class="exercise-card">
-                        <div class="exercise-header">
-                            <div class="exercise-name">${ex.name}</div>
-                            <div class="mini-pill">${ex.sets} x ${ex.reps}</div>
+                        <div class="exercise-header" style="margin-bottom: 8px;">
+                            <div class="exercise-name" style="font-size: 1.15rem;">${ex.name}</div>
                         </div>
                         <div class="exercise-note">${ex.note}</div>
+                        ${ex.tempo ? `<div style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 16px;"><strong>Tempo:</strong> ${ex.tempo}</div>` : ''}
                         
-                        ${ex.type !== 'primer' && ex.metric ? `
-                            <div class="tracking-stats" style="margin: 15px 0; display: flex; gap: 10px; align-items: center;">
-                                <div style="flex: 1;">
-                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Log Reps (${ex.metric})</div>
-                                    <input type="text" class="log-input" placeholder="${ex.targetReps || 'Stats'}" data-ex-idx="${idx}" style="width: 100%; background: #0f172a; border: 1px solid rgba(148,163,184,0.2); padding: 8px; border-radius: 6px; color: #fff; font-size: 0.9rem;">
-                                </div>
-                                <div style="flex: 1;">
-                                    <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;">Weight / Assistance</div>
-                                    <input type="text" class="load-input" placeholder="e.g. Blue Band" data-ex-idx="${idx}" style="width: 100%; background: #0f172a; border: 1px solid rgba(148,163,184,0.2); padding: 8px; border-radius: 6px; color: #fff; font-size: 0.9rem;">
-                                </div>
-                                <button class="btn primary save-log-btn" data-ex-idx="${idx}" style="margin-top: 18px; padding: 8px 12px; font-size: 0.8rem;">Log Set</button>
+                        <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; font-weight: bold; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">
+                                <div style="flex: 1;">Set</div>
+                                <div style="flex: 1; text-align: center;">Goal Reps</div>
+                                <div style="flex: 1; text-align: center;">Rest</div>
+                                <div style="flex: 1; text-align: right;">Actual</div>
                             </div>
-                        ` : ''}
-
-                        <div class="exercise-footer">
-                            <span class="meta-item">Tempo: ${ex.tempo || 'Natural Flow'}</span>
-                            <span class="meta-item">Rest: ${ex.rest || '60s'}</span>
+                            
+                            ${ex.setDetails.map(set => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+                                    <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.95rem;">${set.setNumber}</div>
+                                    <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.95rem;">${set.targetReps}</div>
+                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
+                                    <div style="flex: 1; text-align: right;">
+                                        <input type="text" class="actual-rep-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
+                                            value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] ? (dataLogs.reps[dateKey][ex.id][set.setNumber] || '') : ''}"
+                                            placeholder="-" 
+                                            style="width: 50px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px 8px; color: #fff; text-align: center; font-size: 0.95rem;"
+                                            ${!isReady ? 'disabled' : ''}>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     </div>
-                `).join("")}
+                `).join('')}
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div class="today-card animate-fadeIn workout-grid" style="margin-top: 0;">
+            <div class="day-top" style="margin-bottom: 24px;">
+                <div>
+                    <div class="day-label" style="font-size: 1.5rem; font-weight: 900; color: #fff;">${workout.name}</div>
+                    <div class="day-title" style="color: #94a3b8;">${workout.description}</div>
+                </div>
+                <span class="badge" style="background: rgba(96,165,250,0.15); color: #60a5fa; padding: 6px 12px; border-radius: 20px; font-weight: bold;">${workout.duration} min</span>
+            </div>
+            
+            ${readinessHTML}
+            
+            <div class="workout-content" style="${!isReady && workout.exercises.length > 0 ? 'opacity: 0.4; pointer-events: none; filter: blur(2px); transition: all 0.3s ease;' : ''}">
+                ${renderSection('Warm-up', warmup)}
+                ${renderSection('Main Work', mainWork)}
+                ${renderSection('Cooldown', cooldown)}
             </div>
         </div>
     `;
 
-    // Add event listeners for logging
-    container.querySelectorAll(".save-log-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const idx = e.target.dataset.exIdx;
-            const logInput = container.querySelector(`.log-input[data-ex-idx="${idx}"]`);
-            const loadInput = container.querySelector(`.load-input[data-ex-idx="${idx}"]`);
+    // Event Listeners
+    if (!isReady && workout.exercises.length > 0) {
+        document.getElementById("unlockBtn").addEventListener("click", () => {
+            dataLogs.readiness[dateKey] = true;
+            localStorage.setItem("fitnessplan_logs", JSON.stringify(dataLogs));
+            const wc = container.querySelector(".workout-content");
+            wc.style.opacity = "1";
+            wc.style.pointerEvents = "auto";
+            wc.style.filter = "none";
+            container.querySelector(".readiness-card").style.display = "none";
+            container.querySelectorAll("input.actual-rep-input").forEach(inp => inp.disabled = false);
+        });
+    }
+
+    // Auto-save reps
+    container.querySelectorAll("input.actual-rep-input").forEach(inp => {
+        inp.addEventListener("change", (e) => {
+            const exId = e.target.dataset.ex;
+            const setNum = e.target.dataset.set;
+            const val = e.target.value;
             
-            if (logInput.value || loadInput.value) {
-                const originalText = btn.textContent;
-                btn.textContent = "Saved";
-                btn.classList.add("good");
-                
-                // Persistence simulation
-                console.log(`Log saved for ${workout.exercises[idx].name}: ${logInput.value} @ ${loadInput.value}`);
-                
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                    btn.classList.remove("good");
-                }, 2000);
-            }
+            if (!dataLogs.reps[dateKey]) dataLogs.reps[dateKey] = {};
+            if (!dataLogs.reps[dateKey][exId]) dataLogs.reps[dateKey][exId] = {};
+            dataLogs.reps[dateKey][exId][setNum] = val;
+            
+            localStorage.setItem("fitnessplan_logs", JSON.stringify(dataLogs));
+            
+            // Visual feedback
+            e.target.style.borderColor = "#10b981";
+            e.target.style.background = "rgba(16, 185, 129, 0.1)";
+            setTimeout(() => {
+                e.target.style.borderColor = "rgba(255,255,255,0.2)";
+                e.target.style.background = "rgba(0,0,0,0.3)";
+            }, 800);
         });
     });
 }
