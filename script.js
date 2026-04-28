@@ -347,6 +347,66 @@ function initPlanner() {
         container.innerHTML = html;
     }
 
+    const pushProgressions = [
+        { value: "none", name: "Cannot do one yet" },
+        { value: "plank", name: "Plank (Floor)" },
+        { value: "scapula", name: "Scapula Push-ups" },
+        { value: "wall", name: "Wall Push-ups" },
+        { value: "incline", name: "Incline Push-ups" },
+        { value: "knee", name: "Knee Push-ups" },
+        { value: "negatives", name: "Negative Push-ups" },
+        { value: "regular", name: "Regular Push-ups" },
+        { value: "wide", name: "Wide Push-ups" },
+        { value: "diamond", name: "Diamond Push-ups" },
+        { value: "tricep", name: "Tricep Extensions" },
+        { value: "exploding", name: "Explosive Push-ups" },
+        { value: "archer", name: "Archer Push-ups" },
+        { value: "one-arm-archer", name: "One-Arm Archer Push-ups" },
+        { value: "pike", name: "Pike Push-ups" }
+    ];
+
+    const pullProgressions = [
+        { value: "none", name: "Cannot do one yet" },
+        { value: "dead-hang", name: "Dead Hang" },
+        { value: "scapula", name: "Scapular Pull-ups" },
+        { value: "active-hang", name: "Active Hang" },
+        { value: "negatives", name: "Negative Pull-ups" },
+        { value: "assisted", name: "Band-Assisted Pull-ups" },
+        { value: "regular", name: "Regular Pull-ups" },
+        { value: "wide", name: "Wide Pull-ups" },
+        { value: "archer", name: "Archer Pull-ups" },
+        { value: "weighted", name: "Weighted Pull-ups" }
+    ];
+
+    const squatProgressions = [
+        { value: "none", name: "Cannot do one yet" },
+        { value: "assisted", name: "Assisted Squats" },
+        { value: "box", name: "Box Squats" },
+        { value: "regular", name: "Regular Bodyweight Squats" },
+        { value: "split", name: "Split Squats / Lunges" },
+        { value: "bulgarian", name: "Bulgarian Split Squats" },
+        { value: "pistol-assisted", name: "Assisted Pistol Squats" },
+        { value: "pistol", name: "Pistol Squats" }
+    ];
+
+    function getProgressionConfig(type, baseValue, maxReps, weekOffset = 0) {
+        const list = type === 'push' ? pushProgressions : type === 'pull' ? pullProgressions : squatProgressions;
+        let idx = list.findIndex(x => x.value === baseValue);
+        if (idx === -1) idx = 1; // Default to first actual progression 
+        
+        // If max reps < 2, step down one progression
+        if (maxReps < 2 && idx > 1) {
+            idx -= 1;
+        }
+
+        // apply progression if weekOffset (like week 4 or advanced logic) says so
+        // Actually, let's keep it simple. If deload/next phase, we maybe progress.
+        // For now, just return the mapped item
+        idx = Math.min(idx + weekOffset, list.length - 1);
+        
+        return list[idx] ? list[idx].name : (baseValue || "Regular Exercise");
+    }
+
     function generateScientificPlan() {
         if (formData.focus.length === 0) return null;
 
@@ -428,8 +488,11 @@ function initPlanner() {
                     workout.exercises.push({ type: 'primer', name: "Wrist Rotations", sets: "2", reps: "10", note: "Roll wrists to prep joints.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
-                    let exerciseName = formData.pushVariation || "Knee Push-ups";
+                    let baseValue = formData.pushVariation || "knee";
                     let maxReps = formData.pushupMax || 0;
+                    let weekOffset = w === 4 ? 1 : 0; // In week 4, they get the NEXT progression to practice
+                    let exerciseName = getProgressionConfig('push', baseValue, maxReps, weekOffset);
+                    
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = "Focus on The Lowering Phase.";
@@ -469,8 +532,11 @@ function initPlanner() {
                     workout.exercises.push({ type: 'primer', name: "Dead Hang or Scapula Pulls", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
-                    let exerciseName = formData.pullVariation || "Band-assisted Pull-ups or Bodyweight Rows";
+                    let baseValue = formData.pullVariation || "australian";
                     let maxReps = formData.pullupMax || 0;
+                    let weekOffset = w === 4 ? 1 : 0; // In week 4, they get the NEXT progression to practice
+                    let exerciseName = getProgressionConfig('pull', baseValue, maxReps, weekOffset);
+                    
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = "Hold Still for 1s at the top.";
@@ -510,8 +576,11 @@ function initPlanner() {
                     workout.exercises.push({ type: 'primer', name: "Bodyweight Glute Bridges", sets: "2", reps: "10", note: "Squeeze glutes at top.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE 
-                    let exerciseName = (formData.squatVariation && formData.squatVariation !== "none") ? formData.squatVariation : "Regular Bodyweight Squat";
+                    let baseValue = formData.squatVariation || "regular";
                     let maxReps = formData.squatMax || 0;
+                    let weekOffset = w === 4 ? 1 : 0; // In week 4, they get the NEXT progression to practice
+                    let exerciseName = getProgressionConfig('squat', baseValue, maxReps, weekOffset);
+                    
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = `Focus on depth and control.`;
@@ -572,28 +641,47 @@ function initPlanner() {
                 workout.exercises.forEach((ex, idx) => {
                     ex.id = `ex_${idx}`;
                     let setsDetails = [];
-                    const numSets = parseInt(ex.sets, 10) || 1;
+                    let numSets = parseInt(ex.sets, 10) || 1;
                     const baseRepsStr = ex.reps || "10";
-                    const isTime = typeof baseRepsStr === "string" && (baseRepsStr.includes("min") || baseRepsStr.includes("s") || baseRepsStr.includes("km"));
+                    const isTime = typeof baseRepsStr === "string" && (baseRepsStr.match(/^\d+\s*(s|min)$/)); // like "10s" or "5 min"
                     let baseRepNum = parseInt(baseRepsStr, 10) || baseRepsStr;
+                    const isHypertrophyMove = ex.type === 'mastery' || ex.type === 'builder';
+                    
+                    let currentRestStr = ex.rest || "60s";
+
+                    if (isHypertrophyMove) {
+                        // Week 2: Increase reps or hold time
+                        if (w === 2) {
+                            if (typeof baseRepNum === "number") baseRepNum += 1;
+                        }
+                        // Week 3: Decrease rest AND Add Set (max 1 more)
+                        if (w === 3) {
+                            if (typeof baseRepNum === "number") baseRepNum += 1;
+                            numSets += 1;
+                            if (currentRestStr.includes("s") && !currentRestStr.includes("min")) {
+                                let restSecs = parseInt(currentRestStr, 10);
+                                if (restSecs > 30) currentRestStr = `${restSecs - 15}s`;
+                            }
+                        }
+                        // Week 4: Next progression (handled in exerciseName), so we drop volume to accommodate difficulty
+                        if (w === 4) {
+                            if (typeof baseRepNum === "number") baseRepNum = Math.max(1, baseRepNum - 1);
+                        }
+                    }
 
                     for(let s=0; s < numSets; s++) {
                         let currentTarget = baseRepsStr;
-                        if (!isTime && typeof baseRepNum === "number" && ex.type !== 'primer' && ex.type !== 'cooldown') {
-                             let addedReps = 0;
-                             if (w > 1 && w < 4) { 
-                                 let totalIncreases = w - 1; 
-                                 if (w === 3) totalIncreases = 2; 
-                                 let setsFromEnd = (numSets - 1) - s;
-                                 if (totalIncreases > setsFromEnd) addedReps = 1;
-                             }
-                             if (w === 4) {
-                                 addedReps = -2; 
-                             }
-                             currentTarget = Math.max(1, baseRepNum + addedReps).toString();
-                             if (baseRepsStr.includes("Cluster")) currentTarget = "2";
+
+                        if (isHypertrophyMove && !isTime && typeof baseRepNum === "number") {
+                            currentTarget = baseRepNum.toString();
+                        } else if (isHypertrophyMove && isTime && baseRepsStr.includes("s")) {
+                            let holdSeconds = parseInt(baseRepsStr, 10);
+                            if (w === 2) holdSeconds += 5;
+                            if (w === 3) holdSeconds += 10;
+                            currentTarget = `${holdSeconds}s`;
                         }
-                        setsDetails.push({ setNumber: s + 1, targetReps: currentTarget, rest: ex.rest || "60s" });
+
+                        setsDetails.push({ setNumber: s + 1, targetReps: currentTarget, rest: currentRestStr });
                     }
                     ex.setDetails = setsDetails;
                 });
@@ -762,15 +850,10 @@ function renderDashboard(data) {
                  weeksAheadBox.innerHTML = `<div class="empty-box">No future weeks built yet.</div>`;
             } else {
                  weeksAheadBox.innerHTML = upNext.map(w => `
-                    <div style="margin-bottom: 24px; border-left: 2px solid #3b82f6; padding-left: 16px;">
-                        <h3 style="color: #60a5fa; margin-bottom: 12px;">Week ${w.week} ${w.week === 4 ? '(Deload)' : ''}</h3>
-                        <div class="week-grid">
-                            ${w.workouts.map(wk => `
-                                <div class="info-card" style="padding: 12px; background: rgba(0,0,0,0.2);">
-                                    <div style="font-size: 0.9rem; font-weight: bold; color: #fff;">${wk.day}</div>
-                                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">${wk.name}</div>
-                                </div>
-                            `).join("")}
+                    <div style="margin-bottom: 32px; border-left: 2px solid #3b82f6; padding-left: 16px;">
+                        <h3 style="color: #60a5fa; margin-bottom: 16px; font-size: 1.25rem;">Week ${w.week} ${w.week === 4 ? '(Deload & Next Progression Intro)' : ''}</h3>
+                        <div class="week-grid" style="display: flex; flex-direction: column; gap: 20px;">
+                            ${w.workouts.map(wk => renderReadOnlyWorkoutHTML(wk)).join("")}
                         </div>
                     </div>
                 `).join("");
@@ -780,6 +863,61 @@ function renderDashboard(data) {
     } else if (todayBox) {
         todayBox.innerHTML = `<div class="empty-box">Go to the <a href="./index.html" style="color: #60a5fa;">Planner</a> to start.</div>`;
     }
+}
+
+function renderReadOnlyWorkoutHTML(workout) {
+    if (!workout) return '';
+
+    const warmup = workout.exercises.filter(ex => ex.type === 'primer');
+    const mainWork = workout.exercises.filter(ex => ex.type === 'mastery' || ex.type === 'builder');
+    const cooldown = workout.exercises.filter(ex => ex.type === 'cooldown');
+
+    function renderSection(title, exercises) {
+        if (!exercises || exercises.length === 0) return '';
+        return `
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #fff; font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 12px;">${title}</h4>
+                ${exercises.map(ex => `
+                    <div class="exercise-card" style="margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                        <div class="exercise-name" style="font-size: 1.05rem; font-weight: bold; color: #fff;">${ex.name}</div>
+                        <div class="exercise-note" style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 8px;">${ex.note}</div>
+                        <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 8px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; font-weight: bold; text-transform: uppercase; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
+                                <div style="flex: 1;">Set</div>
+                                <div style="flex: 1.5; text-align: center;">Tempo</div>
+                                <div style="flex: 1; text-align: center;">Target</div>
+                                <div style="flex: 1; text-align: center;">Rest</div>
+                            </div>
+                            ${ex.setDetails.map(set => `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                                    <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.85rem;">${set.setNumber}</div>
+                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
+                                    <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.85rem;">${set.targetReps}</div>
+                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    return `
+        <div class="today-card" style="margin-top: 0; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+            <div class="day-top" style="margin-bottom: 16px;">
+                <div>
+                    <div class="day-label" style="font-size: 1.2rem; font-weight: bold; color: #fff;">${workout.day}: ${workout.name}</div>
+                    <div class="day-title" style="color: #94a3b8; font-size: 0.9rem;">${workout.description}</div>
+                </div>
+            </div>
+            <div class="workout-content">
+                ${renderSection('Warm-up', warmup)}
+                ${renderSection('Main Work', mainWork)}
+                ${renderSection('Cooldown', cooldown)}
+            </div>
+        </div>
+    `;
 }
 
 function renderWorkout(container, workout, dataLogs) {
