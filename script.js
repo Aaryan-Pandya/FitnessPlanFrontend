@@ -294,13 +294,16 @@ function initPlanner() {
             html += `<div class="summary-item"><div class="summary-label">Strength Goals</div><div class="summary-value">${formData.strengthGoals.join(", ")}</div></div>`;
         }
         if (formData.pushVariation && formData.pushVariation !== "none") {
-            html += `<div class="summary-item"><div class="summary-label">Hardest Push</div><div class="summary-value">${formData.pushVariation}</div></div>`;
+            const variName = getProgressionConfig('push', formData.pushVariation, formData.pushupMax || 0, 0);
+            html += `<div class="summary-item"><div class="summary-label">Hardest Push</div><div class="summary-value">${variName}</div></div>`;
         }
         if (formData.pullVariation && formData.pullVariation !== "none") {
-            html += `<div class="summary-item"><div class="summary-label">Hardest Pull</div><div class="summary-value">${formData.pullVariation}</div></div>`;
+            const variName = getProgressionConfig('pull', formData.pullVariation, formData.pullupMax || 0, 0);
+            html += `<div class="summary-item"><div class="summary-label">Hardest Pull</div><div class="summary-value">${variName}</div></div>`;
         }
         if (formData.squatVariation && formData.squatVariation !== "none") {
-            html += `<div class="summary-item"><div class="summary-label">Hardest Squat</div><div class="summary-value">${formData.squatVariation}</div></div>`;
+            const variName = getProgressionConfig('squat', formData.squatVariation, formData.squatMax || 0, 0);
+            html += `<div class="summary-item"><div class="summary-label">Hardest Squat</div><div class="summary-value">${variName}</div></div>`;
         }
         
         html += `</div>`;
@@ -392,19 +395,18 @@ function initPlanner() {
     function getProgressionConfig(type, baseValue, maxReps, weekOffset = 0) {
         const list = type === 'push' ? pushProgressions : type === 'pull' ? pullProgressions : squatProgressions;
         let idx = list.findIndex(x => x.value === baseValue);
-        if (idx === -1) idx = 1; // Default to first actual progression 
+        if (idx === -1) {
+            // Try to find by name if value doesn't match
+            idx = list.findIndex(x => x.name.toLowerCase().includes(baseValue.toLowerCase()));
+        }
+        if (idx === -1) idx = 1; 
         
-        // If max reps < 2, step down one progression
         if (maxReps < 2 && idx > 1) {
             idx -= 1;
         }
 
-        // apply progression if weekOffset (like week 4 or advanced logic) says so
-        // Actually, let's keep it simple. If deload/next phase, we maybe progress.
-        // For now, just return the mapped item
         idx = Math.min(idx + weekOffset, list.length - 1);
-        
-        return list[idx] ? list[idx].name : (baseValue || "Regular Exercise");
+        return list[idx] ? list[idx].name : "Regular Exercise";
     }
 
     function generateScientificPlan() {
@@ -448,32 +450,54 @@ function initPlanner() {
         const hasStrength = formData.focus.includes("strength");
         const hasFlexibility = formData.focus.includes("flexibility");
 
-        if (formData.daysPerWeek === 5) {
-            allowedDays = ['Day A', 'Day B', 'Day C', 'Day D', 'Day E'];
-        } else {
-            if (hasStrength && hasEndurance) {
-                allowedDays = ['Day A', 'Day B', 'Day D'];
-            } else if (hasStrength && hasFlexibility) {
-                allowedDays = ['Day A', 'Day B', 'Day E'];
-            } else if (hasEndurance) {
-                allowedDays = ['Day D', 'Day E', 'Day A'];
-            } else {
-                allowedDays = ['Day A', 'Day B', 'Day C'];
-            }
+        // Pool all requested session types
+        const strengthPool = [];
+        if (formData.strengthGoals.includes("push") || hasStrength) strengthPool.push('Day A');
+        if (formData.strengthGoals.includes("pull") || hasStrength) strengthPool.push('Day B');
+        if (formData.strengthGoals.includes("squat") || hasStrength) strengthPool.push('Day C');
+        
+        const endurancePool = [];
+        if (formData.enduranceType && formData.enduranceType.length > 0) {
+            formData.enduranceType.forEach(type => {
+                endurancePool.push({ id: 'Day D', subType: type });
+            });
+        } else if (hasEndurance) {
+            endurancePool.push({ id: 'Day D', subType: 'Running' });
         }
-        allowedDays.sort();
+
+        const recoveryPool = ['Day E'];
+
+        // Combine into a master cycle
+        const masterCycle = [...strengthPool, ...endurancePool, ...recoveryPool];
+        const daysPerWeek = formData.daysPerWeek || 3;
 
         for (let w = 1; w <= 4; w++) {
             const isDeload = (w === 4);
             const isHighVolume = (w === 3);
             const workouts = [];
 
-            for (let d = 0; d < allowedDays.length; d++) {
-                const sessionKey = allowedDays[d];
-                const session = sessionNames[sessionKey];
+            // Calculate progression offset based on age
+            // Young: +1 per week. Middle: +1 every 2 weeks. Older: +0.5 (rounded)
+            let hypertrophyLevel = w - 1; 
+            if (age >= 50) hypertrophyLevel = Math.floor((w - 1) * 0.3);
+            else if (age >= 35) hypertrophyLevel = Math.floor((w - 1) * 0.6);
+
+            // Determine which items from masterCycle belong to this week
+            // If masterCycle is longer than daysPerWeek, we rotate
+            const weekStartIndex = ((w - 1) * daysPerWeek) % masterCycle.length;
+            
+            for (let d = 0; d < daysPerWeek; d++) {
+                const cycleItem = masterCycle[(weekStartIndex + d) % masterCycle.length];
+                const sessionKey = typeof cycleItem === 'string' ? cycleItem : cycleItem.id;
+                const session = { ...sessionNames[sessionKey] };
+                
+                if (typeof cycleItem === 'object' && cycleItem.subType) {
+                    session.subType = cycleItem.subType;
+                    session.name = `${cycleItem.subType.charAt(0).toUpperCase() + cycleItem.subType.slice(1)}`;
+                }
                 
                 const workout = {
-                    day: session.id,
+                    day: `Workout ${d + 1}`,
                     name: `${session.name}`,
                     duration: formData.sessionLength || 60,
                     description: session.goalDesc,
@@ -488,10 +512,11 @@ function initPlanner() {
                     workout.exercises.push({ type: 'primer', name: "Wrist Rotations", sets: "2", reps: "10", note: "Roll wrists to prep joints.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
-                    let baseValue = formData.pushVariation || "knee";
+                    let baseVar = formData.pushVariation || "knee";
                     let maxReps = formData.pushupMax || 0;
-                    let weekOffset = w === 4 ? 1 : 0; // In week 4, they get the NEXT progression to practice
-                    let exerciseName = getProgressionConfig('push', baseValue, maxReps, weekOffset);
+                    // Progression every rotation if age fits
+                    let weekOffset = (isDeload) ? 1 : 0; 
+                    let exerciseName = getProgressionConfig('push', baseVar, maxReps, weekOffset);
                     
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
@@ -506,7 +531,6 @@ function initPlanner() {
                         noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
                     } else if (maxReps > 12) {
                         repsVal = `${ageRepCap}`;
-                        noteStr = "Mastery Level Reached: Move to the Next Harder Variation immediately.";
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
@@ -516,10 +540,10 @@ function initPlanner() {
                     let builder2 = { name: "Tricep Dips (Off a Chair)", note: "Tricep Isolation." };
                     
                     if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
-                        builder1 = { name: "Pike Push Downs or Downward Dog Push-ups", note: "Shoulder strength for vertical push." };
+                        builder1 = { name: "Pike Push-ups or Downward Dog Push-ups", note: "Shoulder strength for vertical push." };
                         builder2 = { name: "Plank Hold", note: "Build core and shoulder stability." };
                     } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
-                        builder1 = { name: "Archer Pushups or Wide Push-ups", note: "Unilateral strength focus." };
+                        builder1 = { name: "Archer Push-ups or Wide Push-ups", note: "Unilateral strength focus." };
                         builder2 = { name: "Plank Shoulder Taps", note: "Anti-rotation core hold." };
                     }
 
@@ -527,15 +551,13 @@ function initPlanner() {
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day B') {
-                    // THE PRIMER
                     workout.exercises.push({ type: 'primer', name: "Shoulder Shrugs & Rolls", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Dead Hang or Scapula Pulls", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s` });
                     
-                    // THE MASTERY MOVE
-                    let baseValue = formData.pullVariation || "australian";
+                    let baseVar = formData.pullVariation || "australian";
                     let maxReps = formData.pullupMax || 0;
-                    let weekOffset = w === 4 ? 1 : 0; // In week 4, they get the NEXT progression to practice
-                    let exerciseName = getProgressionConfig('pull', baseValue, maxReps, weekOffset);
+                    let weekOffset = (isDeload) ? 1 : 0;
+                    let exerciseName = getProgressionConfig('pull', baseVar, maxReps, weekOffset);
                     
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
@@ -550,12 +572,10 @@ function initPlanner() {
                         noteStr = `Strength: ${setsVal} sets of sub-max reps.`; 
                     } else if (maxReps > 12) { 
                         repsVal = `${ageRepCap}`; 
-                        noteStr = "Mastery Level Reached: Move to the Next Harder Variation."; 
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
-                    // THE BUILDER: Skill-oriented Pull exercises only
                     let builder1 = { name: "Negative/Eccentric Pull-ups or Rows", note: "Back Builder. Jump up and lower slowly." };
                     let builder2 = { name: "Bicep Curls (Dumbbell or Band)", note: "Bicep Builder." };
                     
@@ -571,15 +591,13 @@ function initPlanner() {
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day C') {
-                    // THE PRIMER
                     workout.exercises.push({ type: 'primer', name: "Deep Squat Hold (Use support if needed)", sets: "2", reps: "15s", note: "Sit deep, breathe easy.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "Bodyweight Glute Bridges", sets: "2", reps: "10", note: "Squeeze glutes at top.", rest: `${baseRest / 2}s` });
                     
-                    // THE MASTERY MOVE 
-                    let baseValue = formData.squatVariation || "regular";
+                    let baseVar = formData.squatVariation || "regular";
                     let maxReps = formData.squatMax || 0;
-                    let weekOffset = w === 4 ? 1 : 0; // In week 4, they get the NEXT progression to practice
-                    let exerciseName = getProgressionConfig('squat', baseValue, maxReps, weekOffset);
+                    let weekOffset = (isDeload) ? 1 : 0;
+                    let exerciseName = getProgressionConfig('squat', baseVar, maxReps, weekOffset);
                     
                     let repsVal = "8-10";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
@@ -605,14 +623,14 @@ function initPlanner() {
                     workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day D') {
-                    const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
+                    const eType = session.subType || "Running";
                     
                     workout.exercises.push({ type: 'primer', name: "Dynamic Leg Swings", sets: "1", reps: "10 per leg", note: "Forward/after and side-to-side.", rest: "None" });
                     workout.exercises.push({ type: 'primer', name: "High Knees in Place", sets: "1", reps: "30s", note: "Light and bouncy to prep for engine work.", rest: "None" });
 
                     workout.exercises.push({ 
                         type: 'mastery',
-                        name: `The Engine: ${eType}`, 
+                        name: `The Engine: ${eType.charAt(0).toUpperCase() + eType.slice(1)}`, 
                         sets: "1", 
                         reps: isHighVolume ? "60 min" : "40 min", 
                         note: "Steady Pace, Nose Breathing. Easy Pace.", 
@@ -627,7 +645,7 @@ function initPlanner() {
                     workout.exercises.push({ type: 'primer', name: "Child's Pose", sets: "1", reps: "2 min", note: "Relax and focus on deep breathing.", rest: "None" });
                 }
 
-                // Add Cooldown properly to the exercises list
+                // Add Cooldown properly
                 workout.exercises.push({
                     type: 'cooldown',
                     name: "Light Walk & Specific Stretching",
@@ -643,29 +661,33 @@ function initPlanner() {
                     let setsDetails = [];
                     let numSets = parseInt(ex.sets, 10) || 1;
                     const baseRepsStr = ex.reps || "10";
-                    const isTime = typeof baseRepsStr === "string" && (baseRepsStr.match(/^\d+\s*(s|min)$/)); // like "10s" or "5 min"
+                    const isTime = typeof baseRepsStr === "string" && (baseRepsStr.match(/^\d+\s*(s|min)$/)); 
                     let baseRepNum = parseInt(baseRepsStr, 10) || baseRepsStr;
                     const isHypertrophyMove = ex.type === 'mastery' || ex.type === 'builder';
                     
                     let currentRestStr = ex.rest || "60s";
 
                     if (isHypertrophyMove) {
-                        // Week 2: Increase reps or hold time
-                        if (w === 2) {
+                        // PROGRESSION STEP 1: Increase reps or hold time
+                        if (hypertrophyLevel >= 1) {
                             if (typeof baseRepNum === "number") baseRepNum += 1;
+                            else if (isTime && baseRepsStr.includes("s")) baseRepNum += 5;
                         }
-                        // Week 3: Decrease rest AND Add Set (max 1 more)
-                        if (w === 3) {
-                            if (typeof baseRepNum === "number") baseRepNum += 1;
-                            numSets += 1;
+                        // PROGRESSION STEP 2: Decrease rest
+                        if (hypertrophyLevel >= 2) {
                             if (currentRestStr.includes("s") && !currentRestStr.includes("min")) {
                                 let restSecs = parseInt(currentRestStr, 10);
                                 if (restSecs > 30) currentRestStr = `${restSecs - 15}s`;
                             }
                         }
-                        // Week 4: Next progression (handled in exerciseName), so we drop volume to accommodate difficulty
-                        if (w === 4) {
-                            if (typeof baseRepNum === "number") baseRepNum = Math.max(1, baseRepNum - 1);
+                        // PROGRESSION STEP 3: Add set (max 1 more)
+                        if (hypertrophyLevel >= 3) {
+                            numSets = Math.min(numSets + 1, ageMaxSets);
+                        }
+                        // Week 4 Deload Adjustment
+                        if (isDeload) {
+                             if (typeof baseRepNum === "number") baseRepNum = Math.max(1, Math.floor(baseRepNum * 0.7));
+                             numSets = 2; // Fixed deload sets
                         }
                     }
 
@@ -675,10 +697,7 @@ function initPlanner() {
                         if (isHypertrophyMove && !isTime && typeof baseRepNum === "number") {
                             currentTarget = baseRepNum.toString();
                         } else if (isHypertrophyMove && isTime && baseRepsStr.includes("s")) {
-                            let holdSeconds = parseInt(baseRepsStr, 10);
-                            if (w === 2) holdSeconds += 5;
-                            if (w === 3) holdSeconds += 10;
-                            currentTarget = `${holdSeconds}s`;
+                            currentTarget = `${baseRepNum}s`;
                         }
 
                         setsDetails.push({ setNumber: s + 1, targetReps: currentTarget, rest: currentRestStr });
