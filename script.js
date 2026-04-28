@@ -156,6 +156,21 @@ function initPlanner() {
     setupTiles("#step-push-skill", "pushSkill", 1);
     setupTiles("#step-pull-skill", "pullSkill", 1);
 
+    // De-clumping/Enter-Key Logic
+    document.querySelectorAll(".planner-step input, .planner-step select").forEach(el => {
+        el.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                const visibleSteps = getVisibleSteps();
+                if (currentStepIndex === visibleSteps.length - 1) {
+                    generateBtn.click();
+                } else {
+                    nextBtn.click();
+                }
+            }
+        });
+    });
+
     function validateStep() {
         const visibleSteps = getVisibleSteps();
         const stepId = visibleSteps[currentStepIndex];
@@ -204,8 +219,23 @@ function initPlanner() {
     }
 
     function error(msg) {
-        statusBox.textContent = msg;
+        // Human-friendly error translation
+        let cleanMsg = msg;
+        if (msg.includes("401")) cleanMsg = "Authentication expired. Please log in again.";
+        if (msg.includes("404")) cleanMsg = "Service temporarily unavailable. Please try again later.";
+        if (msg.includes("Failed to fetch")) cleanMsg = "Connection lost. Check your internet.";
+
+        statusBox.textContent = cleanMsg;
         statusBox.className = "status-box bad";
+
+        // Clutter Control: Auto-fade error after 4 seconds
+        setTimeout(() => {
+            if (statusBox.className.includes("bad")) {
+                statusBox.textContent = "Waiting for your input...";
+                statusBox.className = "status-box";
+            }
+        }, 4000);
+
         return false;
     }
 
