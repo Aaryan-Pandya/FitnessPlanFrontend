@@ -322,28 +322,57 @@ function initPlanner() {
         if (formData.focus.length === 0) return null;
 
         const weeks = [];
-        const sessionNames = [
-            { id: 'Day A', name: "The Push Path", goals: ["push"], goalDesc: "Chest, Shoulders & Triceps." },
-            { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
-            { id: 'Day C', name: "The Leg Path", goals: ["squat"], goalDesc: "Quads, Glutes & Core." },
-            { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Steady Pace, Nose Breathing." },
-            { id: 'Day E', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
-        ];
+        const sessionNames = {
+            'Day A': { id: 'Day A', name: "The Push Path", goals: ["push"], goalDesc: "Chest, Shoulders & Triceps." },
+            'Day B': { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
+            'Day C': { id: 'Day C', name: "The Leg Path", goals: ["squat"], goalDesc: "Quads, Glutes & Core." },
+            'Day D': { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Steady Pace, Nose Breathing." },
+            'Day E': { id: 'Day E', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
+        };
 
-        let allowedDays = [];
-        const hasEndurance = formData.focus.includes("endurance");
-        const hasStrength = formData.focus.includes("strength");
-
-        if (hasEndurance && hasStrength) {
-            allowedDays = [0, 1, 2, 3, 4]; // A, B, C, D, E
-        } else if (hasEndurance && !hasStrength) {
-            allowedDays = [0, 1, 3]; // A, B, D
-        } else {
-            allowedDays = [0, 1, 2]; // Defaults to A, B, C if 3 days
-            if (formData.daysPerWeek === 5) {
-                allowedDays = [0, 1, 2, 3, 4];
+        // Determine age and programming parameters
+        let age = 30;
+        if (formData.dob) {
+            const birth = new Date(formData.dob);
+            if (!isNaN(birth.getTime())) {
+                const now = new Date();
+                age = now.getFullYear() - birth.getFullYear();
             }
         }
+
+        let ageMaxSets = 5;
+        let baseRest = 60; // in seconds
+        let ageRepCap = 12;
+
+        if (age >= 50) {
+            ageMaxSets = 3;
+            baseRest = 120;
+            ageRepCap = 8;
+        } else if (age >= 35) {
+            ageMaxSets = 4;
+            baseRest = 90;
+            ageRepCap = 10;
+        }
+
+        let allowedDays = [];
+        const hasEndurance = formData.focus.includes("endurance") || formData.focus.includes("cardio");
+        const hasStrength = formData.focus.includes("strength");
+        const hasFlexibility = formData.focus.includes("flexibility");
+
+        if (formData.daysPerWeek === 5) {
+            allowedDays = ['Day A', 'Day B', 'Day C', 'Day D', 'Day E'];
+        } else {
+            if (hasStrength && hasEndurance) {
+                allowedDays = ['Day A', 'Day B', 'Day D'];
+            } else if (hasStrength && hasFlexibility) {
+                allowedDays = ['Day A', 'Day B', 'Day E'];
+            } else if (hasEndurance) {
+                allowedDays = ['Day D', 'Day E', 'Day A'];
+            } else {
+                allowedDays = ['Day A', 'Day B', 'Day C'];
+            }
+        }
+        allowedDays.sort();
 
         for (let w = 1; w <= 4; w++) {
             const isDeload = (w === 4);
@@ -351,8 +380,8 @@ function initPlanner() {
             const workouts = [];
 
             for (let d = 0; d < allowedDays.length; d++) {
-                const sessionIndex = allowedDays[d];
-                const session = sessionNames[sessionIndex];
+                const sessionKey = allowedDays[d];
+                const session = sessionNames[sessionKey];
                 
                 const workout = {
                     day: session.id,
@@ -365,80 +394,111 @@ function initPlanner() {
                 const eliteTempo = "3s Down, 1s Pause, Fast Up, 1s Squeeze";
 
                 if (session.id === 'Day A') {
-                    // THE PRIMER
+                    // THE PRIMER (Warmup includes mobility)
                     workout.exercises.push({ type: 'primer', name: "Upper Back Warmup", sets: "2", reps: "10", note: "Get your upper back moving.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Wrist Circles", sets: "2", reps: "10", note: "Prep the joints.", rest: "30s" });
+                    workout.exercises.push({ type: 'primer', name: "Wrist Circles", sets: "2", reps: "10", note: "Prep the joints.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
                     let exerciseName = formData.pushVariation || "Floor Push";
                     let maxReps = formData.pushupMax || 0;
                     let repsVal = "8-10";
-                    let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
+                    let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = "Focus on The Lowering Phase.";
 
                     if (maxReps > 0 && maxReps < 3) {
                         repsVal = "2";
-                        setsVal = 5;
-                        noteStr = "Neurological: 5 sets of 2 reps with 20s rest between reps.";
+                        setsVal = ageMaxSets;
+                        noteStr = "Power: Short bursts of 2 reps with 20s rest between reps.";
                     } else if (maxReps >= 3 && maxReps <= 8) {
                         repsVal = `${Math.max(1, maxReps - 2)}`;
-                        setsVal = isDeload ? 2 : (isHighVolume ? 4 : 3);
                         noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
                     } else if (maxReps > 12) {
-                        repsVal = "8-10";
+                        repsVal = `${ageRepCap}`;
                         noteStr = "Mastery Level Reached: Move to the Next Harder Variation immediately.";
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
-                    // THE BUILDER
-                    workout.exercises.push({ type: 'builder', name: "Pike Push Downs", sets: "3", reps: "10-12", note: "Shoulder Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
-                    workout.exercises.push({ type: 'builder', name: "Tricep Extensions", sets: "3", reps: "10-12", note: "Tricep Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+                    // THE BUILDER: Skill-oriented Push exercises only
+                    let builder1 = { name: "Close Grip Push", note: "Triceps and chest focus." };
+                    let builder2 = { name: "Tricep Extensions", note: "Tricep Isolation." };
+                    
+                    if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
+                        builder1 = { name: "Pike Push Downs", note: "Shoulder strength for vertical push." };
+                        builder2 = { name: "Wall Handstand Hold", note: "Build core and shoulder stability." };
+                    } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
+                        builder1 = { name: "Archer Pushups", note: "Unilateral strength focus." };
+                        builder2 = { name: "Plank Shoulder Taps", note: "Anti-rotation core hold." };
+                    }
+
+                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
+                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day B') {
                     // THE PRIMER
                     workout.exercises.push({ type: 'primer', name: "Shoulder Circles", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Bar Hangs", sets: "2", reps: "10s", note: "Prep the grip.", rest: "30s" });
+                    workout.exercises.push({ type: 'primer', name: "Bar Hangs", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s` });
                     
                     // THE MASTERY MOVE
                     let exerciseName = formData.pullVariation || "Linear Pull";
                     let maxReps = formData.pullupMax || 0;
                     let repsVal = "8-10";
-                    let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
+                    let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = "Hold Still for 1s at the top.";
 
                     if (maxReps > 0 && maxReps < 3) {
                         repsVal = "2"; 
-                        setsVal = 5; 
-                        noteStr = "Neurological: 5 sets of 2 reps with 20s rest.";
+                        setsVal = ageMaxSets; 
+                        noteStr = "Power: Short bursts of 2 reps with 20s rest.";
                     } else if (maxReps >= 3 && maxReps <= 8) { 
                         repsVal = `${Math.max(1, maxReps - 2)}`; 
-                        setsVal = isDeload ? 2 : (isHighVolume ? 4 : 3); 
                         noteStr = `Strength: ${setsVal} sets of sub-max reps.`; 
                     } else if (maxReps > 12) { 
-                        repsVal = "8-10"; 
+                        repsVal = `${ageRepCap}`; 
                         noteStr = "Mastery Level Reached: Move to the Next Harder Variation."; 
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
-                    // THE BUILDER
-                    workout.exercises.push({ type: 'builder', name: "Bodyweight Rows", sets: "3", reps: "10-12", note: "Back Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
-                    workout.exercises.push({ type: 'builder', name: "Bicep Curls (Band)", sets: "3", reps: "10-12", note: "Bicep Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+                    // THE BUILDER: Skill-oriented Pull exercises only
+                    let builder1 = { name: "Bodyweight Rows", note: "Back Builder." };
+                    let builder2 = { name: "Bicep Curls (Band)", note: "Bicep Builder." };
+                    
+                    if (formData.pullSkill && formData.pullSkill.includes('muscle-up')) {
+                        builder1 = { name: "Explosive High Pulls", note: "Train speed for the transition." };
+                        builder2 = { name: "Straight Bar Dips", note: "The top half of the movement." };
+                    } else if (formData.pullSkill && formData.pullSkill.includes('one-arm-pull')) {
+                        builder1 = { name: "Archer Pullups", note: "Unilateral vertical pull." };
+                        builder2 = { name: "Uneven Grip Holds", note: "Lock off strength." };
+                    }
+
+                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
+                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day C') {
+                    // THE PRIMER
                     workout.exercises.push({ type: 'primer', name: "Ankle & Hip Opening", sets: "2", reps: "10", note: "Sit deep, breathe easy.", rest: "None" });
-                    workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: "30s" });
+                    workout.exercises.push({ type: 'primer', name: "Back of legs Warmup", sets: "2", reps: "10", note: "Wake up the glutes.", rest: `${baseRest / 2}s` });
                     
+                    // THE MASTERY MOVE 
                     let exerciseName = "Pistol Squat Level-Up";
                     let repsVal = "3";
-                    let setsVal = isHighVolume ? 4 : (isDeload ? 2 : 3);
+                    let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = `Strength: ${setsVal} sets of sub-max reps.`;
+                    
+                    if (formData.focus.includes("endurance")) {
+                         exerciseName = "High Rep Lunges";
+                         repsVal = `${ageRepCap}`;
+                         noteStr = "Build muscular endurance for the legs.";
+                    }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "3 minutes", tempo: eliteTempo, metric: "Sets x Reps", targetReps: `${setsVal}x${repsVal}` });
 
-                    workout.exercises.push({ type: 'builder', name: "Glute Squeeze Bridges", sets: "3", reps: "10-12", note: "Glute Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
-                    workout.exercises.push({ type: 'builder', name: "Assisted Sissy Squats", sets: "3", reps: "10-12", note: "Quad Builder.", rest: "60 seconds", metric: "Sets x Reps", targetReps: "3x12", tempo: eliteTempo });
+                    let builder1 = { name: "Glute Squeeze Bridges", note: "Glute strength for balance." };
+                    let builder2 = { name: "Assisted Sissy Squats", note: "Quad isolation." };
+
+                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder1.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
+                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-${ageRepCap}`, note: builder2.note, rest: `${baseRest}s`, metric: "Sets x Reps", targetReps: `3x${ageRepCap}`, tempo: eliteTempo });
 
                 } else if (session.id === 'Day D') {
                     const eType = formData.enduranceType ? formData.enduranceType[0] : "Run";
