@@ -126,16 +126,16 @@ function savePlannerDraft(draft) {
 
 function getCurrentPlan() {
   try {
-    const current =
+    const raw =
       localStorage.getItem(STORAGE_KEYS.currentPlan) ||
       localStorage.getItem(STORAGE_KEYS.legacyPlan) ||
       "null";
-    return JSON.parse(current);
+
+    return normalizeLoadedPlan(JSON.parse(raw));
   } catch {
     return null;
   }
 }
-
 function saveCurrentPlan(plan) {
   const serialized = JSON.stringify(plan);
   localStorage.setItem(STORAGE_KEYS.currentPlan, serialized);
