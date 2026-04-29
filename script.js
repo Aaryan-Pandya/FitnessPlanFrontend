@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   token: "fitnessplan_token",
   user: "fitnessplan_user",
   currentPlan: "fitnessplan_current_plan",
+  legacyPlan: "fitnessplan_latest_plan",
   plannerDraft: "fitnessplan_planner_draft",
   trackerPrefix: "fitnessplan_tracker_"
 };
