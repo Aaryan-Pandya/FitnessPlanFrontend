@@ -902,42 +902,51 @@ function initPlanner() {
   }
 
   function updateAgePanels() {
-    const ageInfoContainer = byId("age-info-container");
-    const countdownMessage = byId("countdown-message");
-    const countdownTimer = byId("countdown-timer");
-    const parentDisclaimer = byId("parent-disclaimer");
-    const dobValue = byId("dob")?.value || "";
+  const ageInfoContainer = byId("age-info-container");
+  const countdownMessage = byId("countdown-message");
+  const countdownTimer = byId("countdown-timer");
+  const parentDisclaimer = byId("parent-disclaimer");
+  const dobValue = byId("dob")?.value || "";
 
-    if (!dobValue) {
-      if (ageInfoContainer) ageInfoContainer.style.display = "none";
-      return;
+  if (!ageInfoContainer || !countdownMessage || !parentDisclaimer) return;
+
+  ageInfoContainer.classList.add("hidden");
+  countdownMessage.classList.add("hidden");
+  parentDisclaimer.classList.add("hidden");
+
+  if (!dobValue) return;
+
+  const age = getAgeFromDob(dobValue);
+  if (age === null) return;
+
+  ageInfoContainer.classList.remove("hidden");
+
+  if (age < 9) {
+    countdownMessage.classList.remove("hidden");
+
+    const dob = new Date(`${dobValue}T12:00:00`);
+    const ninth = new Date(dob);
+    ninth.setFullYear(dob.getFullYear() + 9);
+
+    const diffDays = Math.max(
+      0,
+      Math.ceil((ninth.getTime() - Date.now()) / 86400000)
+    );
+
+    if (countdownTimer) {
+      countdownTimer.textContent =
+        diffDays > 365
+          ? `${Math.floor(diffDays / 365)} years and ${diffDays % 365} days to go`
+          : `${diffDays} days to go`;
     }
 
-    const age = getAgeFromDob(dobValue);
-    if (age === null) {
-      if (ageInfoContainer) ageInfoContainer.style.display = "none";
-      return;
-    }
-
-    if (ageInfoContainer) ageInfoContainer.style.display = "block";
-
-    if (age < 9) {
-      if (countdownMessage) countdownMessage.style.display = "block";
-      if (parentDisclaimer) parentDisclaimer.style.display = "none";
-      const dob = new Date(`${dobValue}T12:00:00`);
-      const ninth = new Date(dob);
-      ninth.setFullYear(dob.getFullYear() + 9);
-      const diffDays = Math.max(0, Math.ceil((ninth.getTime() - Date.now()) / 86400000));
-      if (countdownTimer) countdownTimer.textContent = diffDays > 365
-        ? `${Math.floor(diffDays / 365)} years and ${diffDays % 365} days to go`
-        : `${diffDays} days to go`;
-    } else if (age < 13) {
-      if (countdownMessage) countdownMessage.style.display = "none";
-      if (parentDisclaimer) parentDisclaimer.style.display = "block";
-    } else {
-      if (ageInfoContainer) ageInfoContainer.style.display = "none";
-    }
+    return;
   }
+
+  if (age < 13) {
+    parentDisclaimer.classList.remove("hidden");
+  }
+}
 
   function handleTileGroup(selector, key, limit = 99) {
     qsa(selector).forEach((btn) => {
