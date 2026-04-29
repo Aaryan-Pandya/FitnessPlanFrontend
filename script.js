@@ -1459,6 +1459,159 @@ function renderExerciseCard(exercise, date, existing) {
           </div>
           <span class="chip neutral">${exercise.category === "endurance" ? "Endurance" : "Work"}</span>
         </div>
+
+        <div class="exercise-meta">
+          <span class="meta-pill">${safeText(exercise.tempo)}</span>
+          <span class="meta-pill">${safeText(exercise.rest)}</span>
+        </div>
+
+        <div class="goal-load-box">${safeText(exercise.goalLoadText)}</div>
+
+        <div class="exercise-table-wrap">
+          <table class="exercise-log-table single-row-table">
+            <thead>
+              <tr>
+                <th>Set</th>
+                <th>Goal</th>
+                <th>Log</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-label="Set">Main</td>
+                <td data-label="Goal">${exercise.targets[0]} minutes</td>
+                <td data-label="Log">
+                  <input
+                    id="${exercise.id}-log"
+                    class="small-input table-input"
+                    data-log-kind="text"
+                    data-exercise-id="${exercise.id}"
+                    data-date="${date}"
+                    type="text"
+                    placeholder="Example: 24 min or 2.1 miles"
+                    value="${existing?.logText || ""}"
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="notes-block">
+          <label for="${exercise.id}-note">Notes</label>
+          <textarea
+            id="${exercise.id}-note"
+            class="small-textarea"
+            data-log-kind="note"
+            data-exercise-id="${exercise.id}"
+            data-date="${date}"
+            placeholder="Optional notes"
+          >${existing?.noteText || ""}</textarea>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="exercise-box">
+      <div class="exercise-head">
+        <div>
+          <div class="exercise-name">${safeText(exercise.name)}</div>
+          <div class="exercise-sub">${safeText(exercise.note)}</div>
+        </div>
+        <span class="chip neutral">${safeText(titleCase(exercise.category))}</span>
+      </div>
+
+      <div class="exercise-meta">
+        <span class="meta-pill">${safeText(exercise.tempo)}</span>
+        <span class="meta-pill">${safeText(exercise.rest)}</span>
+        ${exercise.progressionText ? `<span class="meta-pill">${safeText(exercise.progressionText)}</span>` : ""}
+      </div>
+
+      <div class="goal-load-box">${safeText(exercise.goalLoadText)}</div>
+
+      <div class="exercise-table-wrap">
+        <table class="exercise-log-table">
+          <thead>
+            <tr>
+              <th>Set</th>
+              <th>Goal</th>
+              <th>Log</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(exercise.targets || []).map((target, index) => `
+              <tr>
+                <td data-label="Set">Set ${index + 1}</td>
+                <td data-label="Goal">${target} ${exercise.targetType}</td>
+                <td data-label="Log">
+                  <input
+                    class="small-input table-input"
+                    data-log-kind="set"
+                    data-exercise-id="${exercise.id}"
+                    data-date="${date}"
+                    data-set-index="${index}"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="${exercise.targetType}"
+                    value="${existing?.values?.[index] || ""}"
+                  >
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="load-grid">
+        <div>
+          <label for="${exercise.id}-mode">Load mode</label>
+          <select
+            id="${exercise.id}-mode"
+            class="small-input"
+            data-log-kind="mode"
+            data-exercise-id="${exercise.id}"
+            data-date="${date}"
+          >
+            <option value="normal" ${loadMode === "normal" ? "selected" : ""}>Normal</option>
+            <option value="load" ${loadMode === "load" ? "selected" : ""}>Added load</option>
+            <option value="assistance" ${loadMode === "assistance" ? "selected" : ""}>Assistance</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="${exercise.id}-load">Load / assistance value</label>
+          <input
+            id="${exercise.id}-load"
+            class="small-input"
+            data-log-kind="load"
+            data-exercise-id="${exercise.id}"
+            data-date="${date}"
+            type="text"
+            inputmode="decimal"
+            placeholder="Required for load or assistance"
+            value="${loadValue}"
+            ${loadMode === "normal" ? "disabled" : ""}
+          >
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+  const loadMode = existing?.loadMode || exercise.loadMode || "normal";
+  const loadValue = existing?.loadValue || "";
+
+  if (exercise.targetType === "minutes") {
+    return `
+      <div class="exercise-box">
+        <div class="exercise-head">
+          <div>
+            <div class="exercise-name">${safeText(exercise.name)}</div>
+            <div class="exercise-sub">${safeText(exercise.note)}</div>
+          </div>
+          <span class="chip neutral">${exercise.category === "endurance" ? "Endurance" : "Work"}</span>
+        </div>
         <div class="exercise-meta">
           <span class="meta-pill">${safeText(exercise.tempo)}</span>
           <span class="meta-pill">${safeText(exercise.rest)}</span>
