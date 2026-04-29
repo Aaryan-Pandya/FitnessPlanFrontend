@@ -921,3 +921,38 @@ p {
     font-size: 3.4rem;
   }
 }
+.info-card,
+.record-card,
+.summary-item,
+.preview-workout,
+.week-card,
+.week-mini-card,
+.exercise-box,
+.session-block,
+.today-card,
+.preview-summary,
+.empty-box {
+  min-width: 0;
+}
+
+.info-value,
+.info-sub,
+.record-note,
+.record-value,
+.summary-value,
+.preview-workout-name,
+.preview-workout-sub,
+.week-card-title,
+.week-card-sub,
+.week-mini-label,
+.week-mini-sub,
+.day-title,
+.day-meta,
+.exercise-name,
+.exercise-sub,
+.goal-load-box,
+.streak-sub,
+#signedInText {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
