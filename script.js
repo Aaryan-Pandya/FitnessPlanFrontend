@@ -137,7 +137,9 @@ function getCurrentPlan() {
 }
 
 function saveCurrentPlan(plan) {
-  localStorage.setItem(STORAGE_KEYS.currentPlan, JSON.stringify(plan));
+  const serialized = JSON.stringify(plan);
+  localStorage.setItem(STORAGE_KEYS.currentPlan, serialized);
+  localStorage.setItem(STORAGE_KEYS.legacyPlan, serialized);
 }
 
 function getTrackerKey(planId = "local") {
