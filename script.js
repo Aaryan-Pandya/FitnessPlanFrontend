@@ -1,3 +1,28 @@
+const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
+
+async function savePlanToBackend(email, plan) {
+  await fetch(`${API_BASE}/save-plan`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, plan })
+  });
+}
+
+async function loadPlanFromBackend(email) {
+  const res = await fetch(`${API_BASE}/get-plan`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email })
+  });
+
+  const data = await res.json();
+  return data.plan ? JSON.parse(data.plan) : null;
+}
+
 const STORAGE_KEYS = {
   token: "fitnessplan_token",
   user: "fitnessplan_user",
