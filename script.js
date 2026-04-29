@@ -402,10 +402,10 @@ function initPlanner() {
         { value: "wide", name: "Wide Push-ups" },
         { value: "diamond", name: "Diamond Push-ups" },
         { value: "tricep", name: "Tricep Extensions" },
-        { value: "exploding", name: "Explosive Push-ups" },
+        { value: "exploding", name: "Power Push-ups" },
         { value: "archer", name: "Archer Push-ups" },
         { value: "one-arm-archer", name: "One-Arm Archer Push-ups" },
-        { value: "pike", name: "Pike Push-ups" }
+        { value: "pike", name: "PIKE PUSH UP" }
     ];
 
     const pullProgressions = [
@@ -594,7 +594,7 @@ function initPlanner() {
                         repsVal = `${ageRepCap}`;
                     }
 
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "2-3 min", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
 
                     // THE BUILDER: Skill-oriented Push exercises only
                     let builder1 = { name: "Incline Push-ups (Hands Elevated)", note: "Triceps and chest focus.", loadMode: "normal" };
@@ -603,7 +603,7 @@ function initPlanner() {
                     const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
                     
                     if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
-                        builder1 = { name: hasWeights ? "Dumbbell Overhead Press or Pike Push-ups" : "Pike Push-ups or Downward Dog Push-ups", note: "Shoulder strength for vertical push.", loadMode: hasWeights ? "added load" : "normal" };
+                        builder1 = { name: hasWeights ? "Dumbbell Overhead Press or PIKE PUSH UP" : "PIKE PUSH UP or Downward Dog Push-ups", note: "Shoulder strength for vertical push.", loadMode: hasWeights ? "added load" : "normal" };
                         builder2 = { name: "Plank Hold", note: "Build core and shoulder stability.", loadMode: "normal" };
                     } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
                         builder1 = { name: "Archer Push-ups or Wide Push-ups", note: "Unilateral strength focus.", loadMode: "normal" };
@@ -659,7 +659,7 @@ function initPlanner() {
                         repsVal = `${ageRepCap}`; 
                     }
 
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "2-3 min", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : (lMode === 'added load' ? "Select target weight" : "Bodyweight") });
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : (lMode === 'added load' ? "Select target weight" : "Bodyweight") });
 
                     let builder1 = { name: "Negative/Eccentric Pull-ups or Rows", note: "Back Builder. Jump up and lower slowly.", loadMode: "normal" };
                     let builder2 = { name: "Bicep Curls", note: "Bicep Builder.", loadMode: hasWeights ? "added load" : (hasBands ? "added load" : "normal") };
@@ -669,7 +669,7 @@ function initPlanner() {
                     }
                     
                     if (formData.pullSkill && formData.pullSkill.includes('muscle-up') && hasBar) {
-                        builder1 = { name: "Explosive Band-Assisted Pull-ups", note: "Train speed for the transition.", loadMode: "assistance" };
+                        builder1 = { name: "Band-Assisted Pull-ups (Smooth)", note: "Train the pulling strength for the transition.", loadMode: "assistance" };
                         builder2 = { name: "Tricep Dips (Bars or Chair)", note: "The top half of the movement.", loadMode: "normal" };
                     } else if (formData.pullSkill && formData.pullSkill.includes('one-arm-pull') && hasBar) {
                         builder1 = { name: "Uneven Pull-ups (One hand on towel)", note: "Unilateral vertical pull.", loadMode: "normal" };
@@ -704,7 +704,7 @@ function initPlanner() {
                         repsVal = `${ageRepCap}`;
                     }
 
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "2-3 min", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
 
                     const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
                     let builder1 = { name: "Box Step-Ups or Lunges", note: "Unilateral leg strength.", loadMode: hasWeights ? "added load" : "normal" };
@@ -1035,7 +1035,7 @@ function renderReadOnlyWorkoutHTML(workout) {
                                     <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.85rem;">${set.setNumber}</div>
                                     <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
                                     <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.85rem;">${set.targetReps}</div>
-                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.loadMode === 'normal' ? 'BW' : (ex.goalLoad || '-')}</div>
+                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.loadMode === 'normal' ? 'Bodyweight' : (ex.goalLoad || '-')}</div>
                                     <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
                                 </div>
                             `).join('')}
@@ -1107,8 +1107,8 @@ function renderWorkout(container, workout, dataLogs) {
                     <div class="exercise-card" data-type="${ex.type}" style="margin-bottom: 16px; padding: 20px;">
                         <div class="exercise-header" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
                             <div class="exercise-name" style="font-size: 1.15rem;">${ex.name}</div>
-                            <select class="load-ast-selector" data-ex="${ex.id}" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px; color: #fff; font-size: 0.85rem;" ${!isReady ? 'disabled' : ''}>
-                                <option value="normal" ${ex.loadMode === 'normal' ? 'selected' : ''}>Normal / BW</option>
+                            <select class="load-ast-selector" data-ex="${ex.id}" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 6px 12px; color: #10b981; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; text-align-last: center;" ${!isReady ? 'disabled' : ''}>
+                                <option value="normal" ${ex.loadMode === 'normal' ? 'selected' : ''}>Bodyweight</option>
                                 <option value="added load" ${ex.loadMode === 'added load' ? 'selected' : ''}>Added Load</option>
                                 <option value="assistance" ${ex.loadMode === 'assistance' ? 'selected' : ''}>Assistance</option>
                             </select>
@@ -1130,19 +1130,19 @@ function renderWorkout(container, workout, dataLogs) {
                                     <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.95rem;">${set.setNumber}</div>
                                     <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
                                     <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.95rem;">${set.targetReps}</div>
-                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;" class="load-goal-display" data-ex="${ex.id}">${ex.loadMode === 'normal' ? 'BW' : (ex.goalLoad || '-')}</div>
+                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;" class="load-goal-display" data-ex="${ex.id}">${ex.loadMode === 'normal' ? 'Bodyweight' : (ex.goalLoad || '-')}</div>
                                     <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
                                     <div style="flex: 1.5; text-align: right; display: flex; gap: 4px; justify-content: flex-end;">
                                         <input type="text" class="actual-load-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
                                             value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] && dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] ? (dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] || '') : ''}"
-                                            placeholder="${ex.loadMode === 'assistance' ? 'Ast.' : 'Load'}" 
-                                            style="display: ${(ex.loadMode && ex.loadMode !== 'normal') ? 'inline-block' : 'none'}; width: 50px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px; color: #10b981; text-align: center; font-size: 0.85rem;"
+                                            placeholder="${ex.loadMode === 'assistance' ? 'Assigned' : 'Weight'}" 
+                                            style="display: ${(ex.loadMode && ex.loadMode !== 'normal') ? 'inline-block' : 'none'}; width: 60px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 6px; color: #10b981; text-align: center; font-size: 0.85rem; outline: none;"
                                             ${(ex.loadMode && ex.loadMode !== 'normal') ? 'required' : ''}
                                             ${!isReady ? 'disabled' : ''}>
                                         <input type="text" class="actual-rep-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
                                             value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] ? (dataLogs.reps[dateKey][ex.id][set.setNumber] || '') : ''}"
                                             placeholder="Reps" 
-                                            style="width: 50px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px; color: #fff; text-align: center; font-size: 0.85rem;"
+                                            style="width: 50px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 6px; color: #fff; text-align: center; font-size: 0.85rem; outline: none;"
                                             ${!isReady ? 'disabled' : ''}>
                                     </div>
                                 </div>
@@ -1187,12 +1187,12 @@ function renderWorkout(container, workout, dataLogs) {
                  } else {
                      inp.style.display = 'inline-block';
                      inp.required = true;
-                     inp.placeholder = val === 'assistance' ? 'Ast.' : 'Load';
+                     inp.placeholder = val === 'assistance' ? 'Assigned' : 'Weight';
                  }
             });
             const displayTargets = container.querySelectorAll(`.load-goal-display[data-ex="${exId}"]`);
             displayTargets.forEach(el => {
-                if (val === 'normal') el.innerText = 'BW';
+                if (val === 'normal') el.innerText = 'Bodyweight';
                 else if (val === 'assistance') el.innerText = 'Use clean assistance';
                 else if (val === 'added load') el.innerText = 'Select target weight';
             });
