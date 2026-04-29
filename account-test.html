@@ -6,20 +6,22 @@
   <title>FitnessPlan Account</title>
   <link rel="stylesheet" href="./style.css" />
   <style>
-    .hidden { display: none !important; }
-
+    .hidden {
+      display: none !important;
+    }
 
     .account-wrap {
-      max-width: 560px;
+      max-width: 620px;
       margin: 0 auto;
       padding: 8px 20px 40px;
     }
 
+    .account-stack {
+      display: grid;
+      gap: 18px;
+    }
 
-    .status-box,
-    .debug-box {
-      margin: 0 auto 16px;
-      max-width: 560px;
+    .account-status {
       padding: 14px 16px;
       border-radius: 14px;
       background: rgba(15, 23, 42, 0.92);
@@ -29,15 +31,43 @@
       white-space: pre-wrap;
     }
 
+    .account-status.ok {
+      color: #86efac;
+    }
 
-    .status-box.ok { color: #86efac; }
-    .status-box.bad { color: #fecaca; }
+    .account-status.bad {
+      color: #fecaca;
+    }
 
+    .account-card-sub {
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
 
-    .debug-box {
-      font-family: monospace;
-      font-size: 0.9rem;
-      overflow-wrap: anywhere;
+    .signed-in-box {
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.52);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      padding: 16px;
+      line-height: 1.6;
+      color: #e5eefc;
+    }
+
+    .signed-in-label {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #bfdbfe;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .fine-print {
+      margin-top: 10px;
+      color: #9fb3d9;
+      font-size: 0.92rem;
+      line-height: 1.45;
     }
   </style>
 </head>
@@ -45,280 +75,339 @@
   <header class="topbar">
     <div class="brand">FitnessPlan</div>
     <div class="topbar-actions">
-      <a class="nav-btn secondary" href="./index.html?planner=1">Back to planner</a>
+      <a class="nav-btn secondary" href="./index.html?planner=1">Planner</a>
       <a class="nav-btn secondary" href="./dashboard.html">Dashboard</a>
+      <a class="nav-btn secondary active" href="./account-test.html">Account</a>
     </div>
   </header>
 
-
   <main class="account-wrap">
-    <div id="statusBox" class="status-box">Account page ready.</div>
-    <div id="debugBox" class="debug-box">Debug output will appear here.</div>
+    <div class="account-stack">
+      <div id="statusBox" class="account-status">Account page ready.</div>
 
+      <section class="card" id="homeCard">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h1>Your account</h1>
+          </div>
+        </div>
+        <p class="account-card-sub">
+          Create an account or sign in to keep your profile and plan together.
+        </p>
 
-    <section class="card" id="homeCard">
-      <h2>Account</h2>
-      <div class="button-row">
-        <button type="button" onclick="showSignupCard()">Sign Up</button>
-        <button type="button" class="secondary" onclick="showLoginCard()">Log In</button>
-      </div>
-    </section>
+        <div id="signedInBox" class="signed-in-box hidden">
+          <div class="signed-in-label">Signed in</div>
+          <div id="signedInText">You are signed in.</div>
+          <div class="button-row">
+            <button type="button" id="goDashboardBtn">Go to dashboard</button>
+            <button type="button" class="secondary" id="logoutBtn">Log out</button>
+          </div>
+        </div>
 
+        <div id="signedOutActions" class="button-row">
+          <button type="button" onclick="showSignupCard()">Create account</button>
+          <button type="button" class="secondary" onclick="showLoginCard()">Log in</button>
+        </div>
+      </section>
 
-    <section class="card hidden" id="signupCard">
-      <h2>Create your account</h2>
+      <section class="card hidden" id="signupCard">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Create account</p>
+            <h2>Set up your profile</h2>
+          </div>
+        </div>
 
+        <label for="signupName">Username</label>
+        <input id="signupName" type="text" placeholder="Username" />
 
-      <label for="signupName">Username</label>
-      <input id="signupName" type="text" placeholder="Username" />
+        <label for="signupEmail">Email</label>
+        <input id="signupEmail" type="email" placeholder="Email" />
 
+        <label for="signupPassword">Password</label>
+        <input id="signupPassword" type="password" placeholder="Password" />
 
-      <label for="signupEmail">Email</label>
-      <input id="signupEmail" type="email" placeholder="Email" />
+        <label for="signupDob">Date of birth</label>
+        <input id="signupDob" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" />
 
+        <div class="fine-print">
+          Users under 13 should have a parent or guardian involved in training.
+        </div>
 
-      <label for="signupPassword">Password</label>
-      <input id="signupPassword" type="password" placeholder="Password" />
+        <div class="button-row">
+          <button type="button" id="signupBtn" onclick="handleSignup()">Create account</button>
+          <button type="button" class="secondary" onclick="showHomeCard()">Back</button>
+        </div>
+      </section>
 
+      <section class="card hidden" id="loginCard">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">Log in</p>
+            <h2>Welcome back</h2>
+          </div>
+        </div>
 
-      <label for="signupDob">Date of birth</label>
-      <input id="signupDob" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" />
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" placeholder="Email" />
 
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" placeholder="Password" />
 
-      <div class="button-row">
-        <button type="button" id="signupBtn" onclick="handleSignup()">Create Account</button>
-        <button type="button" class="secondary" onclick="showHomeCard()">Back</button>
-      </div>
-    </section>
-
-
-    <section class="card hidden" id="loginCard">
-      <h2>Welcome back</h2>
-
-
-      <label for="loginEmail">Email</label>
-      <input id="loginEmail" type="email" placeholder="Email" />
-
-
-      <label for="loginPassword">Password</label>
-      <input id="loginPassword" type="password" placeholder="Password" />
-
-
-      <div class="button-row">
-        <button type="button" id="loginBtn" onclick="handleLogin()">Log In</button>
-        <button type="button" class="secondary" onclick="showHomeCard()">Back</button>
-      </div>
-    </section>
+        <div class="button-row">
+          <button type="button" id="loginBtn" onclick="handleLogin()">Log in</button>
+          <button type="button" class="secondary" onclick="showHomeCard()">Back</button>
+        </div>
+      </section>
+    </div>
   </main>
-
 
   <script>
     const API = "https://fitnessplan-backend.cosmowind2013.workers.dev";
+    const TOKEN_KEY = "fitnessplan_token";
+    const USER_KEY = "fitnessplan_user";
 
-
-    window.setStatus = function(message, type = "") {
+    function setStatus(message, type = "") {
       const box = document.getElementById("statusBox");
       box.textContent = message;
-      box.className = "status-box";
+      box.className = "account-status";
       if (type) box.classList.add(type);
     }
 
-
-    window.setDebug = function(message) {
-      const box = document.getElementById("debugBox");
-      if (box) box.textContent = message;
+    function getStoredUser() {
+      try {
+        return JSON.parse(localStorage.getItem(USER_KEY) || "null");
+      } catch {
+        return null;
+      }
     }
 
-
-    window.showHomeCard = function() {
+    function showHomeCard() {
       document.getElementById("homeCard").classList.remove("hidden");
       document.getElementById("signupCard").classList.add("hidden");
       document.getElementById("loginCard").classList.add("hidden");
-      setStatus("Choose Sign Up or Log In.");
+      refreshHomeState();
     }
 
-
-    window.showSignupCard = function() {
+    function showSignupCard() {
       document.getElementById("homeCard").classList.add("hidden");
       document.getElementById("signupCard").classList.remove("hidden");
       document.getElementById("loginCard").classList.add("hidden");
-      setStatus("Fill out the fields, then click Create Account.");
+      setStatus("Fill in your details to create your account.");
     }
 
-
-    window.showLoginCard = function() {
+    function showLoginCard() {
       document.getElementById("homeCard").classList.add("hidden");
       document.getElementById("signupCard").classList.add("hidden");
       document.getElementById("loginCard").classList.remove("hidden");
-      setStatus("Enter your email and password, then click Log In.");
+      setStatus("Enter your email and password to log in.");
     }
 
+    function refreshHomeState() {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const user = getStoredUser();
+      const signedInBox = document.getElementById("signedInBox");
+      const signedOutActions = document.getElementById("signedOutActions");
+      const signedInText = document.getElementById("signedInText");
+
+      if (token && user) {
+        signedInBox.classList.remove("hidden");
+        signedOutActions.classList.add("hidden");
+        signedInText.textContent = `${user.username || "User"} • ${user.email || "No email saved"} • ${user.ageBand || "Age band not set"}`;
+        setStatus(`Signed in as ${user.username || "User"}.`, "ok");
+      } else {
+        signedInBox.classList.add("hidden");
+        signedOutActions.classList.remove("hidden");
+        setStatus("Create an account or log in to keep your plan connected.");
+      }
+    }
 
     function normalizeDateInput(value) {
-      const digits = value.replace(/\D/g, "").slice(0, 8);
+      const digits = String(value || "").replace(/\D/g, "").slice(0, 8);
       if (digits.length <= 4) return digits;
       if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
       return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
     }
 
-
     function isValidDob(value) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-      const d = new Date(`${value}T12:00:00`);
-      return !Number.isNaN(d.getTime());
+      const date = new Date(`${value}T12:00:00`);
+      return !Number.isNaN(date.getTime());
     }
 
+    function getAgeFromDob(value) {
+      const dob = new Date(`${value}T12:00:00`);
+      if (Number.isNaN(dob.getTime())) return null;
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        age -= 1;
+      }
+      return age;
+    }
 
-    window.handleSignup = async function() {
+    function getAgeBand(age) {
+      if (age === null || age === undefined) return "Age band not set";
+      if (age < 9) return "Under minimum age";
+      if (age <= 12) return "Youth Beginner";
+      if (age <= 15) return "Youth Intermediate";
+      if (age <= 17) return "Youth Advanced";
+      return "Adult Standard";
+    }
+
+    async function tryApi(path, body) {
+      const response = await fetch(`${API}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      const rawText = await response.text();
+
+      try {
+        return JSON.parse(rawText);
+      } catch {
+        return { ok: false, error: rawText || "Invalid server response." };
+      }
+    }
+
+    function saveSession(data) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    }
+
+    function createLocalSession({ username, email, dob }) {
+      const age = getAgeFromDob(dob);
+      return {
+        ok: true,
+        token: `local-${Date.now()}`,
+        user: {
+          username,
+          email,
+          age,
+          ageBand: getAgeBand(age),
+          parentRequired: age !== null ? age < 13 : false
+        }
+      };
+    }
+
+    async function handleSignup() {
       const btn = document.getElementById("signupBtn");
-
-
-      const displayName = document.getElementById("signupName").value.trim();
+      const username = document.getElementById("signupName").value.trim();
       const email = document.getElementById("signupEmail").value.trim().toLowerCase();
       const password = document.getElementById("signupPassword").value;
       const dob = document.getElementById("signupDob").value.trim();
 
-
-      setDebug("Button clicked.");
-
-
-      if (!displayName || !email || !password || !dob) {
-        setStatus("Please fill out username, email, password, and date of birth.", "bad");
-        setDebug("Blocked before request: missing fields.");
+      if (!username || !email || !password || !dob) {
+        setStatus("Fill in username, email, password, and date of birth.", "bad");
         return;
       }
-
 
       if (!isValidDob(dob)) {
         setStatus("Date of birth must be in YYYY-MM-DD format.", "bad");
-        setDebug("Blocked before request: DOB format invalid.");
         return;
       }
 
+      const age = getAgeFromDob(dob);
+      if (age !== null && age < 9) {
+        setStatus("FitnessPlan starts at age 9.", "bad");
+        return;
+      }
 
       setStatus("Creating account...");
-      setDebug(`Sending POST to ${API}/signup ...`);
       btn.disabled = true;
 
-
       try {
-        const response = await fetch(`${API}/signup`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            displayName,
+        let data;
+        try {
+          data = await tryApi("/signup", {
+            displayName: username,
             email,
             password,
             dob
-          })
-        });
-
-
-        const rawText = await response.text();
-        setDebug(`HTTP ${response.status}\n\n${rawText}`);
-
-
-        let data;
-        try {
-          data = JSON.parse(rawText);
+          });
         } catch {
-          data = { ok: false, error: rawText || "Non-JSON response." };
+          data = createLocalSession({ username, email, dob });
         }
 
-
         if (data.ok && data.token && data.user) {
-          localStorage.setItem("fitnessplan_token", data.token);
-          localStorage.setItem("fitnessplan_user", JSON.stringify(data.user));
+          saveSession(data);
           setStatus(`Account created. Signed in as ${data.user.username}.`, "ok");
           window.location.href = "./dashboard.html";
           return;
         }
 
-
         setStatus(data.error || "Signup failed.", "bad");
       } catch (error) {
         setStatus(`Signup failed: ${error.message}`, "bad");
-        setDebug(`Fetch error:\n${String(error)}`);
       } finally {
         btn.disabled = false;
       }
     }
 
-
-    window.handleLogin = async function() {
+    async function handleLogin() {
       const btn = document.getElementById("loginBtn");
-
-
       const email = document.getElementById("loginEmail").value.trim().toLowerCase();
       const password = document.getElementById("loginPassword").value;
 
-
-      setDebug("Login button clicked.");
-
-
       if (!email || !password) {
-        setStatus("Please enter email and password.", "bad");
-        setDebug("Blocked before request: missing login fields.");
+        setStatus("Enter your email and password.", "bad");
         return;
       }
 
-
       setStatus("Logging in...");
-      setDebug(`Sending POST to ${API}/login ...`);
       btn.disabled = true;
 
-
       try {
-        const response = await fetch(`${API}/login`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ email, password })
-        });
-
-
-        const rawText = await response.text();
-        setDebug(`HTTP ${response.status}\n\n${rawText}`);
-
-
         let data;
         try {
-          data = JSON.parse(rawText);
+          data = await tryApi("/login", { email, password });
         } catch {
-          data = { ok: false, error: rawText || "Non-JSON response." };
+          const existingUser = getStoredUser();
+          if (existingUser && String(existingUser.email || "").toLowerCase() === email) {
+            data = {
+              ok: true,
+              token: localStorage.getItem(TOKEN_KEY) || `local-${Date.now()}`,
+              user: existingUser
+            };
+          } else {
+            data = { ok: false, error: "No saved local session matches that email." };
+          }
         }
 
-
         if (data.ok && data.token && data.user) {
-          localStorage.setItem("fitnessplan_token", data.token);
-          localStorage.setItem("fitnessplan_user", JSON.stringify(data.user));
+          saveSession(data);
           setStatus(`Logged in as ${data.user.username}.`, "ok");
           window.location.href = "./dashboard.html";
           return;
         }
 
-
         setStatus(data.error || "Login failed.", "bad");
       } catch (error) {
         setStatus(`Login failed: ${error.message}`, "bad");
-        setDebug(`Fetch error:\n${String(error)}`);
       } finally {
         btn.disabled = false;
       }
     }
 
+    function handleLogout() {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      setStatus("You have been logged out.");
+      refreshHomeState();
+    }
 
     document.addEventListener("DOMContentLoaded", () => {
       const signupDob = document.getElementById("signupDob");
       if (signupDob) {
-        signupDob.addEventListener("input", (e) => {
-          e.target.value = normalizeDateInput(e.target.value);
+        signupDob.addEventListener("input", (event) => {
+          event.target.value = normalizeDateInput(event.target.value);
         });
       }
-
 
       ["signupName", "signupEmail", "signupPassword", "signupDob"].forEach((id) => {
         const input = document.getElementById(id);
@@ -331,7 +420,6 @@
         });
       });
 
-
       ["loginEmail", "loginPassword"].forEach((id) => {
         const input = document.getElementById(id);
         if (!input) return;
@@ -343,9 +431,13 @@
         });
       });
 
+      document.getElementById("goDashboardBtn").addEventListener("click", () => {
+        window.location.href = "./dashboard.html";
+      });
 
-      setStatus("Account page ready.");
-      setDebug("Page loaded. Waiting for button click.");
+      document.getElementById("logoutBtn").addEventListener("click", handleLogout);
+
+      refreshHomeState();
     });
   </script>
 </body>
