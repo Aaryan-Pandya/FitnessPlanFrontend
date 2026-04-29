@@ -16,7 +16,6 @@
     </div>
   </header>
 
-
   <main class="container">
     <section class="card hero-card">
       <div class="section-title-row">
@@ -27,10 +26,9 @@
         <span class="mini-pill">4 weeks</span>
       </div>
       <p class="helper">
-        One question at a time. Cleaner inputs. Safer progression. Better week preview.
+        One question at a time. Clear inputs. Safer progression. Better week preview.
       </p>
     </section>
-
 
     <section class="planner-grid">
       <section class="card planner-card">
@@ -40,35 +38,32 @@
           </div>
         </div>
 
-
         <div id="plannerStatus" class="status-box">Answer the questions to build your plan.</div>
-
 
         <form id="plannerForm" novalidate>
           <section class="planner-step" id="step-dob">
             <label class="question-label" for="dob">Date of birth</label>
             <input id="dob" type="date" />
-            <div id="age-info-container" style="margin-top: 1.5rem; display: none;">
-              <div id="countdown-message" class="info-card" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 1.5rem; border-radius: 12px; text-align: center;">
-                <h3 style="margin-bottom: 0.5rem; font-weight: 700;">Training starts at age 9</h3>
-                <p id="countdown-timer" style="font-size: 1.1rem; font-weight: 600;"></p>
-                <p style="margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8;">Come back when your journey begins!</p>
+
+            <div id="age-info-container" class="age-info-wrap hidden">
+              <div id="countdown-message" class="info-card hidden age-warning-card">
+                <h3>Training starts at age 9</h3>
+                <p id="countdown-timer"></p>
+                <p class="small-note">Come back when your training journey begins.</p>
               </div>
-              <div id="parent-disclaimer" class="info-card" style="display: none; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 1.25rem; border-radius: 12px; margin-top: 1rem;">
-                <h3 style="margin-bottom: 0.5rem; font-size: 1rem; font-weight: 700; color: #60a5fa;">Parent/Guardian Note</h3>
-                <p style="font-size: 0.9rem; line-height: 1.5; margin-bottom: 1.25rem; color: #cbd5e1; opacity: 0.9;">
-                  Athletes under 13 must have a parent or guardian review this plan and supervise the training sessions to ensure safety and correct movement technique.
+
+              <div id="parent-disclaimer" class="info-card hidden parent-note-card">
+                <h3>Parent or guardian note</h3>
+                <p class="small-note">
+                  Athletes under 13 need a parent or guardian to review the plan and supervise training.
                 </p>
-                <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                  <label style="display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; margin: 0;">
-                    <input type="checkbox" id="parent-consent" style="width: 18px; height: 18px; cursor: pointer; accent-color: #3b82f6;">
-                    <span style="font-size: 0.85rem; color: #fff; font-weight: 500; line-height: 1.3;">I confirm that a parent/guardian oversees this training.</span>
-                  </label>
-                </div>
+                <label class="check-tile consent-tile">
+                  <input type="checkbox" id="parent-consent" />
+                  <span>I confirm that a parent or guardian oversees this training.</span>
+                </label>
               </div>
             </div>
           </section>
-
 
           <section class="planner-step" id="step-focus">
             <label class="question-label">Primary focus</label>
@@ -78,22 +73,22 @@
               <button type="button" class="tile-btn" data-focus="cardio">Cardio</button>
               <button type="button" class="tile-btn" data-focus="flexibility">Flexibility</button>
             </div>
+            <div class="field-help">Pick up to 2.</div>
           </section>
-
 
           <section class="planner-step" id="step-endurance-type">
             <label class="question-label">Type of endurance</label>
-            <div class="tile-grid endurance-grid">
+            <div class="tile-grid style-grid">
               <button type="button" class="tile-btn" data-type="running">Running</button>
               <button type="button" class="tile-btn" data-type="cycling">Cycling</button>
               <button type="button" class="tile-btn" data-type="swimming">Swimming</button>
             </div>
+            <div class="field-help">Pick one or more.</div>
           </section>
-
 
           <section class="planner-step" id="step-equipment">
             <label class="question-label">What equipment do you have?</label>
-            <div class="tile-grid equipment-grid">
+            <div class="tile-grid style-grid equipment-grid">
               <button type="button" class="tile-btn" data-equip="none">None (Bodyweight)</button>
               <button type="button" class="tile-btn" data-equip="pullup-bar">Pull-up bar</button>
               <button type="button" class="tile-btn" data-equip="dumbbells">Dumbbells</button>
@@ -104,31 +99,28 @@
 
           <section class="planner-step" id="step-strength-goals">
             <label class="question-label">Strength goals</label>
-            <div class="tile-grid goals-grid">
+            <div class="tile-grid style-grid goals-grid">
               <button type="button" class="tile-btn" data-goal="push">Push</button>
               <button type="button" class="tile-btn" data-goal="pull">Pull</button>
               <button type="button" class="tile-btn" data-goal="squat">Squat</button>
             </div>
           </section>
 
-
           <section class="planner-step" id="step-push-skill">
             <label class="question-label">Ultimate push goal</label>
-            <div class="tile-grid skill-grid">
-              <button type="button" class="tile-btn" data-skill="one-arm">One-Arm Pushup</button>
-              <button type="button" class="tile-btn" data-skill="hspu">Handstand Pushup</button>
+            <div class="tile-grid style-grid skill-grid">
+              <button type="button" class="tile-btn" data-skill="one-arm">One-Arm Push-up</button>
+              <button type="button" class="tile-btn" data-skill="hspu">Handstand Push-up</button>
             </div>
           </section>
-
 
           <section class="planner-step" id="step-pull-skill">
             <label class="question-label">Ultimate pull goal</label>
-            <div class="tile-grid skill-grid">
-              <button type="button" class="tile-btn" data-skill="one-arm-pull">One-Arm Pullup</button>
+            <div class="tile-grid style-grid skill-grid">
+              <button type="button" class="tile-btn" data-skill="one-arm-pull">One-Arm Pull-up</button>
               <button type="button" class="tile-btn" data-skill="muscle-up">Muscle Up</button>
             </div>
           </section>
-
 
           <section class="planner-step" id="step-days">
             <label class="question-label" for="daysPerWeek">Workouts per week</label>
@@ -139,7 +131,6 @@
             </select>
           </section>
 
-
           <section class="planner-step" id="step-session-length">
             <label class="question-label" for="sessionLength">Workout length</label>
             <select id="sessionLength">
@@ -149,72 +140,68 @@
             </select>
           </section>
 
-
           <section class="planner-step" id="step-push-variation">
             <label class="question-label" for="pushVariation">Hardest push variation</label>
             <select id="pushVariation">
               <optgroup label="Beginner">
-                  <option value="none">Cannot do one yet</option>
-                  <option value="plank">Plank (floor)</option>
-                  <option value="scapula">Scapula push-up</option>
-                  <option value="wall">Wall push-up</option>
-                  <option value="incline">Incline push-up</option>
-                  <option value="knee">Knee push-up</option>
+                <option value="none">Cannot do one yet</option>
+                <option value="plank">Plank (floor)</option>
+                <option value="scapula">Scapula push-up</option>
+                <option value="wall">Wall push-up</option>
+                <option value="incline">Incline push-up</option>
+                <option value="knee">Knee push-up</option>
               </optgroup>
               <optgroup label="Assisted">
-                  <option value="negatives">Negatives</option>
+                <option value="negatives">Negatives</option>
               </optgroup>
               <optgroup label="Standard">
-                  <option value="regular">Regular push-up</option>
-                  <option value="wide">Wide push-up</option>
-                  <option value="diamond">Diamond push-up</option>
-                  <option value="pike">Pike Push-up</option>
-                  <option value="tricep">Tricep extensions</option>
+                <option value="regular">Regular push-up</option>
+                <option value="wide">Wide push-up</option>
+                <option value="diamond">Diamond push-up</option>
+                <option value="pike">Pike Push-Ups</option>
+                <option value="tricep">Tricep extensions</option>
               </optgroup>
               <optgroup label="Advanced">
-                  <option value="exploding">Power push-up</option>
-                  <option value="archer">Archer push-up</option>
-                  <option value="one-arm-archer">One arm archer</option>
-                  <option value="hspu-wall">Wall HSPU</option>
+                <option value="exploding">Power push-up</option>
+                <option value="archer">Archer push-up</option>
+                <option value="one-arm-archer">One-arm archer</option>
+                <option value="hspu-wall">Wall handstand push-up</option>
               </optgroup>
             </select>
           </section>
-
 
           <section class="planner-step" id="step-push-max">
             <label class="question-label" for="pushupMax">Max clean reps</label>
             <input id="pushupMax" type="text" inputmode="numeric" placeholder="Example: 8" />
           </section>
 
-
           <section class="planner-step" id="step-pull-variation">
             <label class="question-label" for="pullVariation">Hardest pull variation</label>
             <select id="pullVariation">
               <optgroup label="Beginner">
-                  <option value="none">Cannot do one yet</option>
-                  <option value="dead-hang">Dead hang</option>
-                  <option value="scapula">Scapula pull-up</option>
-                  <option value="active-hang">Active hang</option>
+                <option value="none">Cannot do one yet</option>
+                <option value="dead-hang">Dead hang</option>
+                <option value="scapula">Scapular pull-up</option>
+                <option value="active-hang">Active hang</option>
               </optgroup>
               <optgroup label="Assisted">
-                  <option value="negatives">Negative pull-up</option>
-                  <option value="assisted">Band-assisted pull-up</option>
+                <option value="negatives">Negative pull-up</option>
+                <option value="assisted">Band-assisted pull-up</option>
               </optgroup>
               <optgroup label="Standard">
-                  <option value="regular">Regular pull-up</option>
-                  <option value="wide">Wide pull-up</option>
+                <option value="regular">Regular pull-up</option>
+                <option value="wide">Wide pull-up</option>
               </optgroup>
               <optgroup label="Advanced">
-                  <option value="archer">Archer pull-up</option>
-                  <option value="weighted">Weighted pull-up</option>
-                  <option value="muscle-up">Muscle up</option>
+                <option value="archer">Archer pull-up</option>
+                <option value="weighted">Weighted pull-up</option>
+                <option value="muscle-up">Muscle up</option>
               </optgroup>
             </select>
           </section>
 
-
           <section class="planner-step" id="step-pull-assist">
-            <label class="question-label" for="pullAssist">Amount of assistance</label>
+            <label class="question-label" for="pullAssistValue">Amount of assistance</label>
             <div class="split-input">
               <input id="pullAssistValue" type="text" inputmode="numeric" placeholder="Example: 20" />
               <select id="pullAssistUnit">
@@ -224,31 +211,29 @@
             </div>
           </section>
 
-
           <section class="planner-step" id="step-pull-max">
             <label class="question-label" for="pullupMax">Max clean reps</label>
             <input id="pullupMax" type="text" inputmode="numeric" placeholder="Example: 3" />
           </section>
 
-
           <section class="planner-step" id="step-squat-variation">
             <label class="question-label" for="squatVariation">Hardest squat variation</label>
             <select id="squatVariation">
               <optgroup label="Beginner">
-                  <option value="none">Cannot do one yet</option>
-                  <option value="box">Box Squat (sitting down and up)</option>
+                <option value="none">Cannot do one yet</option>
+                <option value="box">Box squat</option>
               </optgroup>
               <optgroup label="Assisted">
-                  <option value="assisted">Assisted Squat (holding onto something)</option>
-                  <option value="pistol-assisted">Assisted Pistol Squat</option>
+                <option value="assisted">Assisted squat</option>
+                <option value="pistol-assisted">Assisted pistol squat</option>
               </optgroup>
               <optgroup label="Standard">
-                  <option value="regular">Regular Bodyweight Squat</option>
-                  <option value="split">Split Squat / Lunge</option>
+                <option value="regular">Regular bodyweight squat</option>
+                <option value="split">Split squat / lunge</option>
               </optgroup>
               <optgroup label="Advanced">
-                  <option value="bulgarian">Bulgarian Split Squat</option>
-                  <option value="pistol">Pistol Squat</option>
+                <option value="bulgarian">Bulgarian split squat</option>
+                <option value="pistol">Pistol squat</option>
               </optgroup>
             </select>
           </section>
@@ -261,21 +246,19 @@
           <section class="planner-step" id="step-wall-sit">
             <label class="question-label" for="wallSit">Best wall sit (optional)</label>
             <input id="wallSit" type="text" inputmode="numeric" placeholder="Example: 45" />
-            <div class="field-help" style="margin-top: 8px;">Seconds</div>
+            <div class="field-help">Seconds</div>
           </section>
 
           <section class="planner-step" id="step-plank">
             <label class="question-label" for="plankMax">Best plank hold</label>
             <input id="plankMax" type="text" inputmode="numeric" placeholder="Example: 45" />
-            <div class="field-help" style="margin-top: 8px;">Seconds</div>
+            <div class="field-help">Seconds</div>
           </section>
-
 
           <section class="planner-step" id="step-mile">
             <label class="question-label" for="mileTime">Best mile time</label>
             <input id="mileTime" type="text" placeholder="Example: 8:05" />
           </section>
-
 
           <section class="planner-step" id="step-run-duration">
             <label class="question-label">Longest continuous run</label>
@@ -288,7 +271,6 @@
             </div>
           </section>
 
-
           <section class="planner-step" id="step-run-distance">
             <label class="question-label">Longest run distance</label>
             <div class="split-input">
@@ -300,13 +282,10 @@
             </div>
           </section>
 
-
           <section class="planner-step" id="step-start-date">
             <label class="question-label" for="startDate">Planned start date</label>
             <input id="startDate" type="date" />
           </section>
-
-
 
           <div class="button-row planner-actions">
             <button id="plannerBackBtn" type="button" class="secondary">Back</button>
@@ -316,14 +295,12 @@
         </form>
       </section>
 
-
       <section class="card planner-summary-card">
         <h2>Plan Summary</h2>
         <div id="planSummaryPreview" class="preview-summary">No plan generated yet.</div>
         <div class="planner-note">Your answers update the summary and week preview.</div>
       </section>
     </section>
-
 
     <section class="card">
       <div class="section-title-row">
@@ -335,7 +312,6 @@
       <div id="schedulePreview" class="week-preview-grid"></div>
     </section>
   </main>
-
 
   <script type="module" src="./script.js"></script>
 </body>
