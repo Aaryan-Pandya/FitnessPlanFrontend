@@ -1738,7 +1738,42 @@ function renderWeek(plan, tracker, weekTrackerBox, weeksAheadBox) {
     </div>
   `).join("");
 }
+function normalizeLoadedPlan(plan) {
+  if (!plan || typeof plan !== "object") return null;
 
+  const normalized = { ...plan };
+
+  normalized.profile = {
+    focus: [],
+    equipment: [],
+    ageBand: "Not set yet",
+    safetyMode: "Not set yet",
+    daysPerWeek: 0,
+    sessionLength: 0,
+    ...(normalized.profile || {})
+  };
+
+  normalized.records = {
+    mileTime: "Not logged yet",
+    longestRun: "Not logged yet",
+    longestRunDistance: "Not logged yet",
+    pushBest: "Not logged yet",
+    pullBest: "Not logged yet",
+    squatBest: "Not logged yet",
+    plankBest: "Not logged yet",
+    wallSitBest: "Not logged yet",
+    ...(normalized.records || {})
+  };
+
+  normalized.weeks = Array.isArray(normalized.weeks)
+    ? normalized.weeks.map((week) => ({
+        ...week,
+        workouts: Array.isArray(week.workouts) ? week.workouts : []
+      }))
+    : [];
+
+  return normalized;
+}
 function initDashboard() {
   const currentPlanBox = byId("currentPlanBox");
   const profileBox = byId("profileBox");
