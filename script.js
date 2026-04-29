@@ -1104,15 +1104,16 @@ function initPlanner() {
     `;
   }
 
-  function generate() {
-    if (!validateStep()) return;
-    syncFromInputs();
-    const plan = buildPlan(formData);
-    saveCurrentPlan(plan);
-    saveDraft();
-    setStatus(statusBox, "Plan generated and saved.", "ok");
-    renderSummaryAndPreview();
-  }
+ function generate() {
+  if (!validateStep()) return;
+
+  syncFromInputs();
+  const plan = buildPlan(formData);
+  saveCurrentPlan(plan);
+  saveDraft();
+  setStatus(statusBox, "Plan generated and saved.", "ok");
+  window.location.href = "./dashboard.html";
+}
 
   qsa("input, select").forEach((input) => {
     input.addEventListener("change", () => {
