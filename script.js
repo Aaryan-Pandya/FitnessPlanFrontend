@@ -126,7 +126,11 @@ function savePlannerDraft(draft) {
 
 function getCurrentPlan() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.currentPlan) || "null");
+    const current =
+      localStorage.getItem(STORAGE_KEYS.currentPlan) ||
+      localStorage.getItem(STORAGE_KEYS.legacyPlan) ||
+      "null";
+    return JSON.parse(current);
   } catch {
     return null;
   }
