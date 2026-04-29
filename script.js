@@ -180,6 +180,59 @@ function initPlanner() {
     setupTiles("#step-push-skill", "pushSkill", 1);
     setupTiles("#step-pull-skill", "pullSkill", 1);
 
+    const dobInput = document.getElementById("dob");
+    const ageInfoContainer = document.getElementById("age-info-container");
+    const countdownMessage = document.getElementById("countdown-message");
+    const countdownTimer = document.getElementById("countdown-timer");
+    const parentDisclaimer = document.getElementById("parent-disclaimer");
+
+    if (dobInput) {
+        dobInput.addEventListener("change", handleAge);
+    }
+
+    function handleAge() {
+        const dobValue = dobInput.value;
+        if (!dobValue) {
+            ageInfoContainer.style.display = 'none';
+            return;
+        }
+
+        const dob = new Date(dobValue);
+        const today = new Date();
+        
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+
+        ageInfoContainer.style.display = 'block';
+        
+        if (age < 9) {
+            countdownMessage.style.display = 'block';
+            parentDisclaimer.style.display = 'none';
+
+            const ninthBirthday = new Date(dob);
+            ninthBirthday.setFullYear(dob.getFullYear() + 9);
+            
+            const diffTime = ninthBirthday.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays > 365) {
+                const years = Math.floor(diffDays / 365);
+                const remainingDays = diffDays % 365;
+                countdownTimer.textContent = `${years} year${years > 1 ? 's' : ''} and ${remainingDays} day${remainingDays !== 1 ? 's' : ''} to go!`;
+            } else {
+                countdownTimer.textContent = `${diffDays} day${diffDays !== 1 ? 's' : ''} to go!`;
+            }
+        } else if (age < 13) {
+            countdownMessage.style.display = 'none';
+            parentDisclaimer.style.display = 'block';
+        } else {
+            ageInfoContainer.style.display = 'none';
+        }
+    }
+
     // De-clumping/Enter-Key Logic for Elite Navigation
     function setupEnterKey() {
         document.querySelectorAll("input, select, textarea").forEach(el => {
@@ -210,6 +263,20 @@ function initPlanner() {
         if (stepId === "dob") {
             formData.dob = document.getElementById("dob").value;
             if (!formData.dob) return error("Date of birth required.");
+            
+            const dob = new Date(formData.dob);
+            const today = new Date();
+            let age = today.getFullYear() - dob.getFullYear();
+            const m = today.getMonth() - dob.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+                age--;
+            }
+
+            if (age < 9) return error("Come back on your 9th birthday!");
+            if (age < 13) {
+                const consent = document.getElementById("parent-consent").checked;
+                if (!consent) return error("Parent/Guardian consent required.");
+            }
         }
         if (stepId === "focus") {
             if (formData.focus.length === 0) return error("Pick at least 1 focus.");
@@ -287,6 +354,8 @@ function initPlanner() {
         
         const lowerMsg = msg.toLowerCase();
         if (lowerMsg.includes("date of birth")) cleanMsg = "Tell the coach your age to personalize the intensity.";
+        if (lowerMsg.includes("9th birthday")) cleanMsg = "Training begins at age 9. Your time will come soon!";
+        if (lowerMsg.includes("parent/guardian consent")) cleanMsg = "Safety first! Please have a parent review the disclaimer.";
         if (lowerMsg.includes("pick at least 1 focus")) cleanMsg = "Select a primary focus to tailor your level-up path.";
         if (lowerMsg.includes("enter your max reps")) cleanMsg = "A quick rep count helps calibrate your mastery level.";
         if (lowerMsg.includes("start date")) cleanMsg = "Set your start date to lock in your 4-week journey.";

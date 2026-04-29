@@ -48,6 +48,23 @@
           <section class="planner-step" id="step-dob">
             <label class="question-label" for="dob">Date of birth</label>
             <input id="dob" type="date" />
+            <div id="age-info-container" style="margin-top: 1.5rem; display: none;">
+              <div id="countdown-message" class="info-card" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #fca5a5; padding: 1.5rem; border-radius: 12px; text-align: center;">
+                <h3 style="margin-bottom: 0.5rem; font-weight: 700;">Training starts at age 9</h3>
+                <p id="countdown-timer" style="font-size: 1.1rem; font-weight: 600;"></p>
+                <p style="margin-top: 0.5rem; font-size: 0.9rem; opacity: 0.8;">Come back when your journey begins!</p>
+              </div>
+              <div id="parent-disclaimer" class="info-card" style="display: none; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 1.5rem; border-radius: 12px;">
+                <h3 style="margin-bottom: 0.75rem; font-weight: 700;">Parent/Guardian Note</h3>
+                <p style="font-size: 0.95rem; line-height: 1.5; margin-bottom: 1rem;">
+                  For athletes under 13, it is essential that a parent or guardian reviews this plan and supervises the sessions. Safety and correct form are our top priorities.
+                </p>
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer; user-select: none;">
+                  <input type="checkbox" id="parent-consent" style="margin-top: 0.25rem;">
+                  <span style="font-size: 0.85rem; color: #cbd5e1;">I confirm that a parent/guardian has reviewed this and will oversee the training.</span>
+                </label>
+              </div>
+            </div>
           </section>
 
 
