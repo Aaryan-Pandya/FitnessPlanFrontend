@@ -72,6 +72,17 @@
           </section>
 
 
+          <section class="planner-step" id="step-equipment">
+            <label class="question-label">What equipment do you have?</label>
+            <div class="tile-grid equipment-grid">
+              <button type="button" class="tile-btn" data-equip="none">None (Bodyweight)</button>
+              <button type="button" class="tile-btn" data-equip="pullup-bar">Pull-up bar</button>
+              <button type="button" class="tile-btn" data-equip="dumbbells">Dumbbells</button>
+              <button type="button" class="tile-btn" data-equip="bands">Resistance bands</button>
+              <button type="button" class="tile-btn" data-equip="bench">Bench / box</button>
+            </div>
+          </section>
+
           <section class="planner-step" id="step-strength-goals">
             <label class="question-label">Strength goals</label>
             <div class="tile-grid goals-grid">
@@ -123,22 +134,30 @@
           <section class="planner-step" id="step-push-variation">
             <label class="question-label" for="pushVariation">Hardest push variation</label>
             <select id="pushVariation">
-              <option value="none">Cannot do one yet</option>
-              <option value="plank">Plank (floor)</option>
-              <option value="scapula">Scapula push-up</option>
-              <option value="wall">Wall push-up</option>
-              <option value="incline">Incline push-up</option>
-              <option value="knee">Knee push-up</option>
-              <option value="negatives">Negatives</option>
-              <option value="regular">Regular push-up</option>
-              <option value="wide">Wide push-up</option>
-              <option value="diamond">Diamond push-up</option>
-              <option value="tricep">Tricep extensions</option>
-              <option value="exploding">Exploding push-up</option>
-              <option value="archer">Archer push-up</option>
-              <option value="one-arm-archer">One arm archer</option>
-              <option value="pike">Pike push-up</option>
-              <option value="hspu-wall">Wall HSPU</option>
+              <optgroup label="Beginner">
+                  <option value="none">Cannot do one yet</option>
+                  <option value="plank">Plank (floor)</option>
+                  <option value="scapula">Scapula push-up</option>
+                  <option value="wall">Wall push-up</option>
+                  <option value="incline">Incline push-up</option>
+                  <option value="knee">Knee push-up</option>
+              </optgroup>
+              <optgroup label="Assisted">
+                  <option value="negatives">Negatives</option>
+              </optgroup>
+              <optgroup label="Standard">
+                  <option value="regular">Regular push-up</option>
+                  <option value="wide">Wide push-up</option>
+                  <option value="diamond">Diamond push-up</option>
+                  <option value="pike">Pike push-up</option>
+                  <option value="tricep">Tricep extensions</option>
+              </optgroup>
+              <optgroup label="Advanced">
+                  <option value="exploding">Exploding push-up</option>
+                  <option value="archer">Archer push-up</option>
+                  <option value="one-arm-archer">One arm archer</option>
+                  <option value="hspu-wall">Wall HSPU</option>
+              </optgroup>
             </select>
           </section>
 
@@ -152,17 +171,25 @@
           <section class="planner-step" id="step-pull-variation">
             <label class="question-label" for="pullVariation">Hardest pull variation</label>
             <select id="pullVariation">
-              <option value="none">Cannot do one yet</option>
-              <option value="dead-hang">Dead hang</option>
-              <option value="scapula">Scapula pull-up</option>
-              <option value="active-hang">Active hang</option>
-              <option value="negatives">Negative pull-up</option>
-              <option value="assisted">Band-assisted pull-up</option>
-              <option value="regular">Regular pull-up</option>
-              <option value="wide">Wide pull-up</option>
-              <option value="archer">Archer pull-up</option>
-              <option value="weighted">Weighted pull-up</option>
-              <option value="muscle-up">Muscle up</option>
+              <optgroup label="Beginner">
+                  <option value="none">Cannot do one yet</option>
+                  <option value="dead-hang">Dead hang</option>
+                  <option value="scapula">Scapula pull-up</option>
+                  <option value="active-hang">Active hang</option>
+              </optgroup>
+              <optgroup label="Assisted">
+                  <option value="negatives">Negative pull-up</option>
+                  <option value="assisted">Band-assisted pull-up</option>
+              </optgroup>
+              <optgroup label="Standard">
+                  <option value="regular">Regular pull-up</option>
+                  <option value="wide">Wide pull-up</option>
+              </optgroup>
+              <optgroup label="Advanced">
+                  <option value="archer">Archer pull-up</option>
+                  <option value="weighted">Weighted pull-up</option>
+                  <option value="muscle-up">Muscle up</option>
+              </optgroup>
             </select>
           </section>
 
@@ -188,14 +215,22 @@
           <section class="planner-step" id="step-squat-variation">
             <label class="question-label" for="squatVariation">Hardest squat variation</label>
             <select id="squatVariation">
-              <option value="none">Cannot do one yet</option>
-              <option value="assisted">Assisted Squat (holding onto something)</option>
-              <option value="box">Box Squat (sitting down and up)</option>
-              <option value="regular">Regular Bodyweight Squat</option>
-              <option value="split">Split Squat / Lunge</option>
-              <option value="bulgarian">Bulgarian Split Squat</option>
-              <option value="pistol-assisted">Assisted Pistol Squat</option>
-              <option value="pistol">Pistol Squat</option>
+              <optgroup label="Beginner">
+                  <option value="none">Cannot do one yet</option>
+                  <option value="box">Box Squat (sitting down and up)</option>
+              </optgroup>
+              <optgroup label="Assisted">
+                  <option value="assisted">Assisted Squat (holding onto something)</option>
+                  <option value="pistol-assisted">Assisted Pistol Squat</option>
+              </optgroup>
+              <optgroup label="Standard">
+                  <option value="regular">Regular Bodyweight Squat</option>
+                  <option value="split">Split Squat / Lunge</option>
+              </optgroup>
+              <optgroup label="Advanced">
+                  <option value="bulgarian">Bulgarian Split Squat</option>
+                  <option value="pistol">Pistol Squat</option>
+              </optgroup>
             </select>
           </section>
 

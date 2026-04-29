@@ -49,7 +49,7 @@ function getLocalPlan() {
 function initPlanner() {
     // All possible steps in order
     const allSteps = [
-        "dob", "focus", "endurance-type", "strength-goals", "push-skill", "pull-skill",
+        "dob", "focus", "endurance-type", "equipment", "strength-goals", "push-skill", "pull-skill",
         "days", "session-length",
         "push-variation", "push-max", 
         "pull-variation", "pull-assist", "pull-max", 
@@ -61,6 +61,7 @@ function initPlanner() {
     const formData = {
         focus: [],
         enduranceType: [],
+        equipment: [],
         strengthGoals: [],
         pushSkill: [],
         pullSkill: []
@@ -149,7 +150,7 @@ function initPlanner() {
     function setupTiles(selector, dataKey, limit) {
         document.querySelectorAll(`${selector} .tile-btn`).forEach(btn => {
             btn.addEventListener("click", () => {
-                const val = btn.dataset.focus || btn.dataset.type || btn.dataset.goal || btn.dataset.skill;
+                const val = btn.dataset.focus || btn.dataset.type || btn.dataset.goal || btn.dataset.skill || btn.dataset.equip;
                 if (!val) return;
 
                 if (formData[dataKey].includes(val)) {
@@ -174,6 +175,7 @@ function initPlanner() {
 
     setupTiles("#step-focus", "focus", 2);
     setupTiles("#step-endurance-type", "enduranceType", 3);
+    setupTiles(".equipment-grid", "equipment", 5);
     setupTiles("#step-strength-goals", "strengthGoals", 3);
     setupTiles("#step-push-skill", "pushSkill", 1);
     setupTiles("#step-pull-skill", "pullSkill", 1);
@@ -212,6 +214,16 @@ function initPlanner() {
         if (stepId === "focus") {
             if (formData.focus.length === 0) return error("Pick at least 1 focus.");
         }
+        if (stepId === "endurance-type") {
+            if (formData.focus.includes('endurance') && (!formData.enduranceType || formData.enduranceType.length === 0)) {
+                 return error("Select at least 1 endurance type.");
+            }
+        }
+        if (stepId === "equipment") {
+            if (!formData.equipment || formData.equipment.length === 0) {
+                 return error("Select equipment (or None for bodyweight).");
+            }
+        }
         if (stepId === "days") {
             formData.daysPerWeek = parseInt(document.getElementById("daysPerWeek").value);
         }
@@ -249,6 +261,17 @@ function initPlanner() {
         if (stepId === "plank") {
             formData.plankMax = parseInt(document.getElementById("plankMax").value);
             if (isNaN(formData.plankMax)) return error("Enter your plank hold.");
+        }
+        if (stepId === "mile") {
+            formData.mile = document.getElementById("mileTime").value;
+        }
+        if (stepId === "run-duration") {
+            formData.runDuration = document.getElementById("longestRunDuration").value;
+        }
+        if (stepId === "run-distance") {
+            const val = document.getElementById("longestRunDistanceValue").value;
+            const unit = document.getElementById("longestRunDistanceUnit").value;
+            if (val) formData.runDistance = `${val} ${unit}`;
         }
         if (stepId === "start-date") {
             formData.startDate = document.getElementById("startDate").value;
@@ -435,7 +458,8 @@ function initPlanner() {
             'Day B': { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
             'Day C': { id: 'Day C', name: "The Leg Path", goals: ["squat"], goalDesc: "Quads, Glutes & Core." },
             'Day D': { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Steady Pace, Nose Breathing." },
-            'Day E': { id: 'Day E', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
+            'Day E': { id: 'Day E', name: "Endurance Variation", goals: ["endurance"], goalDesc: "Intervals or Cross-training." },
+            'Day F': { id: 'Day F', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
         };
 
         // Determine age and programming parameters
@@ -487,11 +511,19 @@ function initPlanner() {
             formData.enduranceType.forEach(type => {
                 endurancePool.push({ id: 'Day D', subType: type });
             });
+            // Ensure at least 2 days if they only picked 1 type
+            if (endurancePool.length === 1) {
+                endurancePool.push({ id: 'Day E', subType: `${formData.enduranceType[0]} (Intervals)` });
+            } else {
+                // If they picked multiple, just make the 2nd one Day E
+                endurancePool[1].id = 'Day E';
+            }
         } else if (hasEndurance) {
             endurancePool.push({ id: 'Day D', subType: 'Running' });
+            endurancePool.push({ id: 'Day E', subType: 'Running (Intervals)' });
         }
 
-        const recoveryPool = ['Day E'];
+        const recoveryPool = ['Day F'];
 
         // Combine into a master cycle
         const masterCycle = [...strengthPool, ...endurancePool, ...recoveryPool];
@@ -530,7 +562,7 @@ function initPlanner() {
                     exercises: []
                 };
 
-                const eliteTempo = "2 sec down, light pause, controlled up";
+                const eliteTempo = (ageBand === 'youth_beginner' || ageBand === 'youth_intermediate') ? "Smooth and controlled" : "2 sec down, 1s pause, explode up";
                 const primerTempo = "Controlled, light movement";
                 const repsInReserve = "Stop with 1-3 reps in reserve.";
 
@@ -562,36 +594,59 @@ function initPlanner() {
                         repsVal = `${ageRepCap}`;
                     }
 
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "2-3 min", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
 
                     // THE BUILDER: Skill-oriented Push exercises only
                     let builder1 = { name: "Incline Push-ups (Hands Elevated)", note: "Triceps and chest focus.", loadMode: "normal" };
                     let builder2 = { name: "Tricep Dips (Off a Chair)", note: "Tricep Isolation.", loadMode: "normal" };
                     
+                    const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
+                    
                     if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
-                        builder1 = { name: "Pike Push-ups or Downward Dog Push-ups", note: "Shoulder strength for vertical push.", loadMode: "normal" };
+                        builder1 = { name: hasWeights ? "Dumbbell Overhead Press or Pike Push-ups" : "Pike Push-ups or Downward Dog Push-ups", note: "Shoulder strength for vertical push.", loadMode: hasWeights ? "added load" : "normal" };
                         builder2 = { name: "Plank Hold", note: "Build core and shoulder stability.", loadMode: "normal" };
                     } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
                         builder1 = { name: "Archer Push-ups or Wide Push-ups", note: "Unilateral strength focus.", loadMode: "normal" };
                         builder2 = { name: "Plank Shoulder Taps", note: "Anti-rotation core hold.", loadMode: "normal" };
                     }
 
-                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: "Bodyweight" });
-                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: "Bodyweight" });
+                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: builder1.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
+                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: builder2.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
 
                 } else if (session.id === 'Day B') {
                     workout.exercises.push({ type: 'primer', name: "Shoulder Shrugs & Rolls", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    workout.exercises.push({ type: 'primer', name: "Dead Hang or Scapula Pulls", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
                     
-                    let baseVar = formData.pullVariation || "australian";
+                    const hasBar = formData.equipment && formData.equipment.includes("pullup-bar");
+                    const hasBands = formData.equipment && formData.equipment.includes("bands");
+                    const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
+                    
+                    if (hasBar) {
+                         workout.exercises.push({ type: 'primer', name: "Dead Hang or Scapula Pulls", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
+                    } else {
+                         workout.exercises.push({ type: 'primer', name: "Prone Y-T-W Raises (Floor)", sets: "2", reps: "10", note: "Prep the mid back.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
+                    }
+                    
+                    let baseVar = formData.pullVariation || "none";
                     let maxReps = formData.pullupMax || 0;
                     let weekOffset = (isDeload) ? 1 : 0;
                     let exerciseName = getProgressionConfig('pull', baseVar, maxReps, weekOffset);
+                    
+                    if (!hasBar) {
+                        if (hasWeights) {
+                            exerciseName = "Bent Over Dumbbell Rows";
+                        } else if (hasBands) {
+                            exerciseName = "Band Lat Pulldowns or Band Rows";
+                        } else {
+                            exerciseName = "Table/Australian Rows or Sliding Floor Pull-ups";
+                        }
+                    }
                     
                     let repsVal = "8-12";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
                     let noteStr = `${repsInReserve} Hold Still for 1s at the top.`;
                     let lMode = (baseVar === 'assisted' || baseVar === 'negatives') ? 'assistance' : 'normal';
+                    
+                    if (!hasBar && hasWeights) lMode = "added load";
 
                     if (maxReps > 0 && maxReps < 6) {
                         repsVal = "4-6"; 
@@ -604,15 +659,19 @@ function initPlanner() {
                         repsVal = `${ageRepCap}`; 
                     }
 
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "2-3 min", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : (lMode === 'added load' ? "Select target weight" : "Bodyweight") });
 
                     let builder1 = { name: "Negative/Eccentric Pull-ups or Rows", note: "Back Builder. Jump up and lower slowly.", loadMode: "normal" };
-                    let builder2 = { name: "Bicep Curls (Dumbbell or Band)", note: "Bicep Builder.", loadMode: "added load" };
+                    let builder2 = { name: "Bicep Curls", note: "Bicep Builder.", loadMode: hasWeights ? "added load" : (hasBands ? "added load" : "normal") };
                     
-                    if (formData.pullSkill && formData.pullSkill.includes('muscle-up')) {
+                    if (!hasBar) {
+                         builder1 = { name: "Superman Holds or Bodyweight Reverse Flyes", note: "Upper back strength.", loadMode: "normal" };
+                    }
+                    
+                    if (formData.pullSkill && formData.pullSkill.includes('muscle-up') && hasBar) {
                         builder1 = { name: "Explosive Band-Assisted Pull-ups", note: "Train speed for the transition.", loadMode: "assistance" };
                         builder2 = { name: "Tricep Dips (Bars or Chair)", note: "The top half of the movement.", loadMode: "normal" };
-                    } else if (formData.pullSkill && formData.pullSkill.includes('one-arm-pull')) {
+                    } else if (formData.pullSkill && formData.pullSkill.includes('one-arm-pull') && hasBar) {
                         builder1 = { name: "Uneven Pull-ups (One hand on towel)", note: "Unilateral vertical pull.", loadMode: "normal" };
                         builder2 = { name: "Active Hangs", note: "Lock off strength.", loadMode: "normal" };
                     }
@@ -645,32 +704,34 @@ function initPlanner() {
                         repsVal = `${ageRepCap}`;
                     }
 
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
+                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "2-3 min", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
 
-                    let builder1 = { name: "Box Step-Ups or Lunges", note: "Unilateral leg strength.", loadMode: "normal" };
-                    let builder2 = { name: "Calf Raises (Off a step)", note: "Calf isolation.", loadMode: "normal" };
+                    const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
+                    let builder1 = { name: "Box Step-Ups or Lunges", note: "Unilateral leg strength.", loadMode: hasWeights ? "added load" : "normal" };
+                    let builder2 = { name: "Calf Raises (Off a step)", note: "Calf isolation.", loadMode: hasWeights ? "added load" : "normal" };
 
-                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: "Bodyweight" });
-                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: "Bodyweight" });
+                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: builder1.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
+                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: builder2.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
 
-                } else if (session.id === 'Day D') {
+                } else if (session.id === 'Day D' || session.id === 'Day E') {
                     const eType = session.subType || "Running";
+                    const isIntervals = session.id === 'Day E';
                     
                     workout.exercises.push({ type: 'primer', name: "Dynamic Leg Swings", sets: "1", reps: "10 per leg", note: "Forward/after and side-to-side.", rest: "None", tempo: primerTempo, loadMode: "normal" });
                     workout.exercises.push({ type: 'primer', name: "High Knees in Place", sets: "1", reps: "30s", note: "Light and bouncy to prep for engine work.", rest: "None", tempo: primerTempo, loadMode: "normal" });
 
                     workout.exercises.push({ 
                         type: 'mastery',
-                        name: `The Engine: ${eType.charAt(0).toUpperCase() + eType.slice(1)}`, 
-                        sets: "1", 
-                        reps: isHighVolume ? "60 min" : "40 min", 
-                        note: "Steady Pace, Nose Breathing. Easy Pace.", 
-                        rest: "Cooldown",
-                        tempo: "Steady State",
+                        name: isIntervals ? `Intervals: ${eType.charAt(0).toUpperCase() + eType.slice(1)}` : `The Engine: ${eType.charAt(0).toUpperCase() + eType.slice(1)}`, 
+                        sets: isIntervals ? "4" : "1", 
+                        reps: isIntervals ? "3 min" : (isHighVolume ? "60 min" : "40 min"), 
+                        note: isIntervals ? "Hard effort for 3 minutes, active recovery for 2." : "Steady Pace, Nose Breathing. Easy Pace.", 
+                        rest: isIntervals ? "2 min" : "Cooldown",
+                        tempo: isIntervals ? "Fast / Vigorous" : "Steady State",
                         loadMode: "normal",
                         goalLoad: "N/A"
                     });
-                } else if (session.id === 'Day E') {
+                } else if (session.id === 'Day F') {
                     workout.exercises.push({ type: 'primer', name: "Cat-Cow Stretch", sets: "1", reps: "10", note: "Flow with your breath. Spine mobility.", rest: "None", tempo: primerTempo, loadMode: "normal" });
                     workout.exercises.push({ type: 'primer', name: "Hip Flexor Kneeling Stretch", sets: "1", reps: "60s per leg", note: "Tuck pelvis under gently.", rest: "None", tempo: primerTempo, loadMode: "normal" });
                     workout.exercises.push({ type: 'primer', name: "Child's Pose", sets: "1", reps: "2 min", note: "Relax and focus on deep breathing.", rest: "None", tempo: primerTempo, loadMode: "normal" });
@@ -755,8 +816,7 @@ function initPlanner() {
             formData: formData,
             weeks: fullPlan,
             createdAt: new Date().toISOString(),
-            activeDay: 'Day A', // Store default active day
-            streak: 0
+            activeDay: 'Workout 1' // Default to first workout of week
         };
         
         saveLocalPlan(planToSave);
@@ -785,17 +845,48 @@ async function initDashboard() {
     await loadDashboardData();
 }
 
+function calculateStreak(logs) {
+    if (!logs || !logs.readiness || Object.keys(logs.readiness).length === 0) return 0;
+    const dates = Object.keys(logs.readiness)
+        .map(k => k.split("_")[0]) // extract date string
+        .map(ds => new Date(ds))
+        .filter(d => !isNaN(d.getTime()))
+        .sort((a,b) => b.getTime() - a.getTime());
+    
+    if (dates.length === 0) return 0;
+    
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    let streak = 0;
+    
+    // Check if the most recent workout was today or yesterday
+    const diffDays = Math.floor((today - dates[0]) / (1000 * 60 * 60 * 24));
+    if (diffDays > 1) return 0; // Streak broken
+    
+    streak = 1;
+    for (let i = 1; i < dates.length; i++) {
+        const diff = Math.floor((dates[i-1] - dates[i]) / (1000 * 60 * 60 * 24));
+        if (diff === 1) {
+            streak++;
+        } else if (diff > 1) {
+            break;
+        }
+    }
+    return streak;
+}
+
 async function loadDashboardData() {
     // Local static data loading
     const plan = getLocalPlan();
     const user = getUser();
+    const logs = JSON.parse(localStorage.getItem('fitnessplan_logs')) || { readiness: {}, reps: {} };
     
     const data = {
         ok: true,
         user: user,
         plan: plan,
-        streak: (plan ? plan.streak : 0),
-        logs: JSON.parse(localStorage.getItem('fitnessplan_logs')) || { readiness: {}, reps: {} }
+        streak: calculateStreak(logs),
+        logs: logs
     };
 
     renderDashboard(data);
@@ -845,6 +936,7 @@ function renderDashboard(data) {
         if (fd.squatMax) html += `<div class="info-card"><div class="info-label">Max Squats</div><div class="info-value">${fd.squatMax}</div></div>`;
         if (fd.plankMax) html += `<div class="info-card"><div class="info-label">Plank Hold</div><div class="info-value">${fd.plankMax}s</div></div>`;
         if (fd.wallSit) html += `<div class="info-card"><div class="info-label">Wall Sit</div><div class="info-value">${fd.wallSit}s</div></div>`;
+        if (fd.mile) html += `<div class="info-card" style="border: 1px solid #10b981; background: rgba(16,185,129,0.05);"><div class="info-label" style="color: #10b981;">Best Mile</div><div class="info-value" style="color: #fff;">${fd.mile}</div></div>`;
         
         if (html) {
             recordsBox.innerHTML = html;
@@ -858,16 +950,13 @@ function renderDashboard(data) {
         
         // Render Day Picker
         if (dayPickerContainer) {
-            const days = ['Day A', 'Day B', 'Day C', 'Day D', 'Day E'].filter(d => 
-                weekWorkouts.some(w => w.day === d)
-            );
             
-            dayPickerContainer.innerHTML = days.map(day => {
-                const dateKey = new Date().toDateString() + "_" + day;
+            dayPickerContainer.innerHTML = weekWorkouts.map(w => {
+                const dateKey = new Date().toDateString() + "_" + w.day;
                 const isDone = data.logs && data.logs.readiness && data.logs.readiness[dateKey] ? '<span style="color:#10b981; margin-left:4px;">✔</span>' : '';
                 return `
-                    <button class="day-tab ${data.plan.activeDay === day ? 'active' : ''}" data-day="${day}">
-                        ${day} ${isDone}
+                    <button class="day-tab ${data.plan.activeDay === w.day ? 'active' : ''}" data-day="${w.day}">
+                        ${w.day} ${isDone}
                     </button>
                 `;
             }).join("");
@@ -1015,13 +1104,18 @@ function renderWorkout(container, workout, dataLogs) {
             <div style="margin-bottom: 30px;">
                 <h3 style="color: #fff; font-size: 1.25rem; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px;">${title}</h3>
                 ${exercises.map(ex => `
-                    <div class="exercise-card">
-                        <div class="exercise-header" style="margin-bottom: 8px;">
+                    <div class="exercise-card" data-type="${ex.type}" style="margin-bottom: 16px; padding: 20px;">
+                        <div class="exercise-header" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
                             <div class="exercise-name" style="font-size: 1.15rem;">${ex.name}</div>
+                            <select class="load-ast-selector" data-ex="${ex.id}" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px; color: #fff; font-size: 0.85rem;" ${!isReady ? 'disabled' : ''}>
+                                <option value="normal" ${ex.loadMode === 'normal' ? 'selected' : ''}>Normal / BW</option>
+                                <option value="added load" ${ex.loadMode === 'added load' ? 'selected' : ''}>Added Load</option>
+                                <option value="assistance" ${ex.loadMode === 'assistance' ? 'selected' : ''}>Assistance</option>
+                            </select>
                         </div>
-                        <div class="exercise-note">${ex.note}</div>
+                        <div class="exercise-note" style="margin-bottom: 16px; color: #94a3b8; font-size: 0.9rem;">${ex.note}</div>
                         
-                        <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px;">
+                        <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px;">
                             <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; font-weight: bold; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">
                                 <div style="flex: 1;">Set</div>
                                 <div style="flex: 1.5; text-align: center;">Tempo</div>
@@ -1036,16 +1130,15 @@ function renderWorkout(container, workout, dataLogs) {
                                     <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.95rem;">${set.setNumber}</div>
                                     <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
                                     <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.95rem;">${set.targetReps}</div>
-                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.loadMode === 'normal' ? 'BW' : (ex.goalLoad || '-')}</div>
+                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;" class="load-goal-display" data-ex="${ex.id}">${ex.loadMode === 'normal' ? 'BW' : (ex.goalLoad || '-')}</div>
                                     <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
                                     <div style="flex: 1.5; text-align: right; display: flex; gap: 4px; justify-content: flex-end;">
-                                        ${ex.loadMode && ex.loadMode !== 'normal' ? `
-                                            <input type="text" class="actual-load-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
-                                                value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] && dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] ? (dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] || '') : ''}"
-                                                placeholder="Lbs/Kg" 
-                                                style="width: 50px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px; color: #10b981; text-align: center; font-size: 0.85rem;"
-                                                ${!isReady ? 'disabled' : ''}>
-                                        ` : ''}
+                                        <input type="text" class="actual-load-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
+                                            value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] && dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] ? (dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] || '') : ''}"
+                                            placeholder="${ex.loadMode === 'assistance' ? 'Ast.' : 'Load'}" 
+                                            style="display: ${(ex.loadMode && ex.loadMode !== 'normal') ? 'inline-block' : 'none'}; width: 50px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px; color: #10b981; text-align: center; font-size: 0.85rem;"
+                                            ${(ex.loadMode && ex.loadMode !== 'normal') ? 'required' : ''}
+                                            ${!isReady ? 'disabled' : ''}>
                                         <input type="text" class="actual-rep-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
                                             value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] ? (dataLogs.reps[dateKey][ex.id][set.setNumber] || '') : ''}"
                                             placeholder="Reps" 
@@ -1081,6 +1174,32 @@ function renderWorkout(container, workout, dataLogs) {
         </div>
     `;
 
+    // Set up dynamic inputs based on load-ast-selector
+    container.querySelectorAll(".load-ast-selector").forEach(sel => {
+        sel.addEventListener("change", (e) => {
+            const exId = e.target.dataset.ex;
+            const val = e.target.value;
+            const loadInputs = container.querySelectorAll(`input.actual-load-input[data-ex="${exId}"]`);
+            loadInputs.forEach(inp => {
+                 if (val === 'normal') {
+                     inp.style.display = 'none';
+                     inp.required = false;
+                 } else {
+                     inp.style.display = 'inline-block';
+                     inp.required = true;
+                     inp.placeholder = val === 'assistance' ? 'Ast.' : 'Load';
+                 }
+            });
+            const displayTargets = container.querySelectorAll(`.load-goal-display[data-ex="${exId}"]`);
+            displayTargets.forEach(el => {
+                if (val === 'normal') el.innerText = 'BW';
+                else if (val === 'assistance') el.innerText = 'Use clean assistance';
+                else if (val === 'added load') el.innerText = 'Select target weight';
+            });
+            // Update plan in memory so it persists? Not necessarily requested but good if saved
+        });
+    });
+
     // Event Listeners
     if (!isReady && workout.exercises.length > 0) {
         document.getElementById("unlockBtn").addEventListener("click", () => {
@@ -1112,11 +1231,20 @@ function renderWorkout(container, workout, dataLogs) {
                 wc.insertBefore(alertDiv, wc.firstChild);
 
                 // Auto-hide builder exercises to reduce volume
-                const allExCards = container.querySelectorAll(".exercise-card");
+                const allExCards = container.querySelectorAll('.exercise-card[data-type="builder"]');
                 allExCards.forEach(card => {
-                    const titleText = card.querySelector(".exercise-name")?.innerText || "";
-                    if (titleText !== "The Engine" && !titleText.includes("Squat") && !titleText.includes("Push") && !titleText.includes("Pull") && titleText.includes("Builder")) {
-                         // Or just hide bottom 50%
+                    card.style.display = 'none';
+                });
+                
+                // Cut remaining mastery sets by 1 via DOM hiding
+                const masteryCards = container.querySelectorAll('.exercise-card[data-type="mastery"]');
+                masteryCards.forEach(card => {
+                    const sets = card.querySelectorAll('.sets-wrapper > div:nth-child(n+2)'); // First child is header
+                    if (sets.length > 1) {
+                         const lastSet = sets[sets.length - 1];
+                         lastSet.style.display = 'none';
+                         // Disable required inputs so form can submit or not break
+                         lastSet.querySelectorAll('input').forEach(inp => inp.disabled = true);
                     }
                 });
             } else if (sleepVal + energyVal + nutriVal > 12) {
