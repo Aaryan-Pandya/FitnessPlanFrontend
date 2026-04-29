@@ -333,7 +333,9 @@ function initPlanner() {
             formData.mile = document.getElementById("mileTime").value;
         }
         if (stepId === "run-duration") {
-            formData.runDuration = document.getElementById("longestRunDuration").value;
+            const val = document.getElementById("longestRunDurationValue").value;
+            const unit = document.getElementById("longestRunDurationUnit").value;
+            if (val) formData.runDuration = `${val} ${unit}`;
         }
         if (stepId === "run-distance") {
             const val = document.getElementById("longestRunDistanceValue").value;
@@ -474,7 +476,7 @@ function initPlanner() {
         { value: "exploding", name: "Power Push-ups" },
         { value: "archer", name: "Archer Push-ups" },
         { value: "one-arm-archer", name: "One-Arm Archer Push-ups" },
-        { value: "pike", name: "PIKE PUSH UP" }
+        { value: "pike", name: "Pike Push-ups" }
     ];
 
     const pullProgressions = [
@@ -510,8 +512,13 @@ function initPlanner() {
         }
         if (idx === -1) idx = 1; 
         
-        if (maxReps < 2 && idx > 1) {
-            idx -= 1;
+        // SAFETY & HYPERTROPHY LOGIC
+        // If max reps of chosen variation < 8, move back 1-2 levels to ensure user can perform 
+        // the required volume (8-15 reps) for true hypertrophy and safety.
+        if (maxReps < 4) {
+            idx = Math.max(1, idx - 2);
+        } else if (maxReps < 8) {
+            idx = Math.max(1, idx - 1);
         }
 
         idx = Math.min(idx + weekOffset, list.length - 1);
@@ -649,18 +656,17 @@ function initPlanner() {
                     
                     let repsVal = "8-12";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `${repsInReserve} Focus on form.`;
-                    let lMode = baseVar === 'negatives' ? 'assistance' : 'normal';
+                    let noteStr = `True Hypertrophy Zone. ${repsInReserve} Stay controlled.`;
+                    let lMode = (baseVar === 'negatives' || exerciseName.toLowerCase().includes('negative')) ? 'assistance' : 'normal';
 
-                    if (maxReps > 0 && maxReps < 6) {
-                        repsVal = "4-6";
-                        setsVal = ageMaxSets;
-                        noteStr = `${repsInReserve} Power focus.`;
-                    } else if (maxReps >= 6 && maxReps <= 15) {
-                        repsVal = `${Math.max(4, maxReps - 2)}`;
-                        noteStr = `${repsInReserve} Strength sets.`;
-                    } else if (maxReps > 15) {
-                        repsVal = `${ageRepCap}`;
+                    // Adjust targets to reinforce hypertrophy (8-15 reps)
+                    // If maxReps were used to downgrade movement, we now target higher reps
+                    if (maxReps < 8) {
+                        repsVal = "8-10";
+                    } else if (maxReps <= 15) {
+                        repsVal = `${Math.min(15, Math.max(8, maxReps))}`;
+                    } else {
+                        repsVal = "12-15";
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
@@ -671,11 +677,17 @@ function initPlanner() {
                     
                     const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
                     
+                    const isBeginner = (maxReps < 8);
+                    
                     if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
-                        builder1 = { name: hasWeights ? "Dumbbell Overhead Press or PIKE PUSH UP" : "PIKE PUSH UP or Downward Dog Push-ups", note: "Shoulder strength for vertical push.", loadMode: hasWeights ? "added load" : "normal" };
+                        if (isBeginner) {
+                            builder1 = { name: "Downward Dog Holds or Pike Holds", note: "Shoulder stability for vertical push.", loadMode: "normal" };
+                        } else {
+                            builder1 = { name: hasWeights ? "Dumbbell Overhead Press or Pike Push-ups" : "Pike Push-ups", note: "Shoulder strength for vertical push.", loadMode: hasWeights ? "added load" : "normal" };
+                        }
                         builder2 = { name: "Plank Hold", note: "Build core and shoulder stability.", loadMode: "normal" };
                     } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
-                        builder1 = { name: "Archer Push-ups or Wide Push-ups", note: "Unilateral strength focus.", loadMode: "normal" };
+                        builder1 = { name: isBeginner ? "Wide Push-ups or Knee Archer Push-ups" : "Archer Push-ups or Wide Push-ups", note: "Unilateral strength focus.", loadMode: "normal" };
                         builder2 = { name: "Plank Shoulder Taps", note: "Anti-rotation core hold.", loadMode: "normal" };
                     }
 
@@ -712,20 +724,17 @@ function initPlanner() {
                     
                     let repsVal = "8-12";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `${repsInReserve} Hold Still for 1s at the top.`;
-                    let lMode = (baseVar === 'assisted' || baseVar === 'negatives') ? 'assistance' : 'normal';
+                    let noteStr = `True Hypertrophy Zone. ${repsInReserve} Controlled drive.`;
+                    let lMode = (baseVar === 'assisted' || baseVar === 'negatives' || exerciseName.toLowerCase().includes('negative')) ? 'assistance' : 'normal';
                     
                     if (!hasBar && hasWeights) lMode = "added load";
 
-                    if (maxReps > 0 && maxReps < 6) {
-                        repsVal = "4-6"; 
-                        setsVal = ageMaxSets; 
-                        noteStr = `${repsInReserve} Clean form focus.`;
-                    } else if (maxReps >= 6 && maxReps <= 15) { 
-                        repsVal = `${Math.max(4, maxReps - 2)}`; 
-                        noteStr = `${repsInReserve} Strength focus.`; 
-                    } else if (maxReps > 15) { 
-                        repsVal = `${ageRepCap}`; 
+                    if (maxReps < 8) {
+                        repsVal = "8-10";
+                    } else if (maxReps <= 15) { 
+                        repsVal = `${Math.min(15, Math.max(8, maxReps))}`; 
+                    } else { 
+                        repsVal = "12-15"; 
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : (lMode === 'added load' ? "Select target weight" : "Bodyweight") });
@@ -757,20 +766,17 @@ function initPlanner() {
                     let weekOffset = (isDeload) ? 1 : 0;
                     let exerciseName = getProgressionConfig('squat', baseVar, maxReps, weekOffset);
                     
-                    let repsVal = "8-12";
+                    let repsVal = "8-15";
                     let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `${repsInReserve} Focus on depth and control.`;
-                    let lMode = (baseVar === 'assisted' || baseVar === 'pistol-assisted') ? 'assistance' : 'normal';
+                    let noteStr = `True Hypertrophy Zone. ${repsInReserve} Full depth control.`;
+                    let lMode = (baseVar === 'assisted' || baseVar === 'pistol-assisted' || exerciseName.toLowerCase().includes('assisted')) ? 'assistance' : 'normal';
                     
-                    if (maxReps > 0 && maxReps < 6) {
-                        repsVal = "4-6";
-                        setsVal = ageMaxSets;
-                        noteStr = `${repsInReserve} Clean focus.`;
-                    } else if (maxReps >= 6 && maxReps <= 15) {
-                        repsVal = `${Math.max(4, maxReps - 2)}`;
-                        noteStr = `${repsInReserve} Strength sets.`;
-                    } else if (maxReps > 15) {
-                        repsVal = `${ageRepCap}`;
+                    if (maxReps < 8) {
+                        repsVal = "10-12";
+                    } else if (maxReps <= 15) {
+                        repsVal = `${Math.min(15, Math.max(8, maxReps))}`;
+                    } else {
+                        repsVal = "12-15";
                     }
 
                     workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
