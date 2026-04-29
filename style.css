@@ -2,7 +2,6 @@
   box-sizing: border-box;
 }
 
-
 html,
 body {
   margin: 0;
@@ -16,17 +15,14 @@ body {
   color: #f8fbff;
 }
 
-
 body {
   min-height: 100vh;
 }
-
 
 a {
   color: inherit;
   text-decoration: none;
 }
-
 
 button,
 input,
@@ -34,7 +30,6 @@ select,
 textarea {
   font: inherit;
 }
-
 
 button {
   border: 0;
@@ -48,18 +43,15 @@ button {
   box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
 }
 
-
 button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
-
 
 button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
 }
-
 
 button.secondary,
 .nav-btn.secondary {
@@ -69,13 +61,11 @@ button.secondary,
   box-shadow: none;
 }
 
-
 .nav-btn.secondary.active {
   background: rgba(59, 130, 246, 0.22);
   border-color: rgba(96, 165, 250, 0.38);
   color: #eff6ff;
 }
-
 
 input,
 select,
@@ -89,12 +79,10 @@ textarea {
   outline: none;
 }
 
-
 input::placeholder,
 textarea::placeholder {
   color: #9fb3d9;
 }
-
 
 input:focus,
 select:focus,
@@ -103,11 +91,9 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
 }
 
-
 textarea {
   resize: vertical;
 }
-
 
 label {
   display: block;
@@ -116,11 +102,9 @@ label {
   font-weight: 700;
 }
 
-
 .hidden {
   display: none !important;
 }
-
 
 .topbar {
   display: flex;
@@ -136,7 +120,6 @@ label {
   border-bottom: 1px solid rgba(148, 163, 184, 0.14);
 }
 
-
 .brand {
   font-size: 2rem;
   font-weight: 900;
@@ -144,14 +127,12 @@ label {
   color: #ecf5ff;
 }
 
-
 .topbar-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
-
 
 .nav-btn {
   display: inline-flex;
@@ -163,12 +144,10 @@ label {
   font-weight: 800;
 }
 
-
 .container {
   width: min(1240px, calc(100% - 28px));
   margin: 28px auto 56px;
 }
-
 
 .card {
   background: linear-gradient(180deg, rgba(19, 36, 67, 0.94), rgba(15, 29, 53, 0.92));
@@ -178,11 +157,9 @@ label {
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
 }
 
-
 .hero-card {
   margin-bottom: 20px;
 }
-
 
 h1,
 h2,
@@ -193,29 +170,24 @@ h4 {
   letter-spacing: -0.02em;
 }
 
-
 h1 {
   font-size: 2rem;
   font-weight: 900;
 }
-
 
 h2 {
   font-size: 1.4rem;
   font-weight: 850;
 }
 
-
 h3 {
   font-size: 1.08rem;
   font-weight: 800;
 }
 
-
 p {
   margin: 0;
 }
-
 
 .eyebrow {
   font-size: 0.8rem;
@@ -226,7 +198,6 @@ p {
   margin-bottom: 8px;
 }
 
-
 .helper,
 .field-help,
 .small-note,
@@ -235,7 +206,6 @@ p {
   line-height: 1.5;
 }
 
-
 .section-title-row {
   display: flex;
   justify-content: space-between;
@@ -243,7 +213,6 @@ p {
   gap: 12px;
   margin-bottom: 12px;
 }
-
 
 .mini-pill {
   display: inline-flex;
@@ -258,7 +227,6 @@ p {
   white-space: nowrap;
 }
 
-
 .status-box {
   margin-bottom: 16px;
   min-height: 22px;
@@ -271,16 +239,13 @@ p {
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
-
 .status-box.ok {
   color: #9ae6b4;
 }
 
-
 .status-box.bad {
   color: #fecaca;
 }
-
 
 .empty-box,
 .preview-summary {
@@ -293,8 +258,8 @@ p {
   line-height: 1.55;
 }
 
+/* Planner */
 
-/* Clean Clutter Control */
 .planner-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -339,13 +304,13 @@ p {
 
 .planner-step {
   display: none;
-  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 0.35s ease;
 }
 
 .planner-step.active {
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 2rem;
 }
 
 .question-label {
@@ -362,23 +327,16 @@ p {
   to { opacity: 1; transform: translateY(0); }
 }
 
-
 .tile-grid {
   display: grid;
   gap: 10px;
   margin-top: 10px;
 }
 
-
-.focus-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-
+.focus-grid,
 .style-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-
 
 .tile-btn {
   width: 100%;
@@ -391,12 +349,10 @@ p {
   box-shadow: none;
 }
 
-
 .tile-btn.active {
   background: rgba(37, 99, 235, 0.28);
   border-color: rgba(96, 165, 250, 0.42);
 }
-
 
 .check-tile {
   display: flex;
@@ -412,12 +368,30 @@ p {
   cursor: pointer;
 }
 
-
 .check-tile input {
   width: auto;
   margin: 0;
 }
 
+.consent-tile {
+  margin-top: 14px;
+}
+
+.age-info-wrap {
+  margin-top: 8px;
+}
+
+.age-warning-card {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.parent-note-card {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
 
 .split-input {
   display: grid;
@@ -425,149 +399,13 @@ p {
   gap: 10px;
 }
 
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  padding: 0;
-  margin-top: 20px;
-}
-
-.today-wrap {
-  margin-top: 24px;
-}
-
-.info-card, .record-card, .exercise-box {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
-}
-
-.info-card:hover, .record-card:hover, .exercise-box:hover {
-  transform: translateY(-2px);
-  border-color: rgba(96, 165, 250, 0.3);
-}
-
-.date-display {
-  color: #fff;
-  font-weight: 600;
-}
-
 .button-row {
   display: flex;
-  gap: 1.25rem;
+  gap: 1rem;
   margin-top: auto;
   padding-top: 1.5rem;
-}
-
-.day-picker-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  background: rgba(30, 41, 59, 0.5);
-  padding: 6px;
-  border-radius: 12px;
-  width: fit-content;
-}
-
-.day-tab {
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #94a3b8;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  background: transparent;
-}
-
-.day-tab:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.day-tab.active {
-  color: #fff;
-  background: #3b82f6;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
-}
-
-.log-input:focus,
-.load-input:focus {
-  outline: none;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.save-log-btn.good {
-  background: #10b981 !important;
-  border-color: #10b981 !important;
-}
-
-.workout-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  padding: 0;
-}
-
-.exercise-card {
-  margin-bottom: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 24px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.exercise-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(96, 165, 250, 0.3);
-}
-
-.exercise-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.exercise-name {
-  font-size: 1.25rem;
-  font-weight: 900;
-  color: #60a5fa;
-}
-
-.exercise-note {
-  font-size: 1rem;
-  color: #cbd5e1;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
-
-.exercise-footer {
-  display: flex;
   flex-wrap: wrap;
-  gap: 12px;
 }
-
-.meta-item {
-  font-size: 0.75rem;
-  background: rgba(148, 163, 184, 0.1);
-  padding: 4px 10px;
-  border-radius: 6px;
-  color: #94a3b8;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.4s ease forwards;
-}
-
 
 .planner-actions {
   margin-top: 2rem;
@@ -575,29 +413,16 @@ p {
   padding-top: 1.5rem;
 }
 
-
 .summary-list {
   display: grid;
   gap: 10px;
 }
-
 
 .summary-item {
   border-radius: 18px;
   background: rgba(15, 23, 42, 0.44);
   border: 1px solid rgba(148, 163, 184, 0.12);
   padding: 16px;
-  transition: transform 0.2s ease;
-}
-
-@keyframes summaryPulse {
-  0% { transform: scale(1); border-color: rgba(96, 165, 250, 0.12); }
-  50% { transform: scale(1.02); border-color: rgba(96, 165, 250, 0.4); }
-  100% { transform: scale(1); border-color: rgba(96, 165, 250, 0.12); }
-}
-
-.summary-item.pulse {
-  animation: summaryPulse 0.4s ease-out;
 }
 
 .summary-label {
@@ -609,14 +434,6 @@ p {
   margin-bottom: 8px;
 }
 
-.field-help {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #94a3b8;
-  margin-top: 10px;
-}
-
-
 .summary-value {
   font-size: 1rem;
   font-weight: 800;
@@ -625,12 +442,10 @@ p {
   word-break: break-word;
 }
 
-
 .week-preview-grid {
   display: grid;
   gap: 14px;
 }
-
 
 .preview-week {
   padding: 16px;
@@ -639,7 +454,6 @@ p {
   border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-
 .preview-week-title {
   font-weight: 900;
   font-size: 1.08rem;
@@ -647,12 +461,10 @@ p {
   color: #f8fbff;
 }
 
-
 .preview-workout-list {
   display: grid;
   gap: 10px;
 }
-
 
 .preview-workout {
   padding: 12px;
@@ -660,7 +472,6 @@ p {
   background: rgba(2, 6, 23, 0.35);
   border: 1px solid rgba(148, 163, 184, 0.12);
 }
-
 
 .preview-workout-top {
   display: flex;
@@ -670,19 +481,16 @@ p {
   margin-bottom: 6px;
 }
 
-
 .preview-workout-name {
   font-weight: 800;
   color: #fff;
 }
-
 
 .preview-workout-sub {
   color: #cbd5e1;
   font-size: 0.92rem;
   line-height: 1.45;
 }
-
 
 .preview-badge {
   padding: 5px 10px;
@@ -694,25 +502,23 @@ p {
   white-space: nowrap;
 }
 
-
 .preview-badge.warn {
   background: rgba(245, 158, 11, 0.18);
   color: #fde68a;
 }
 
+/* Dashboard */
 
 .dashboard-shell {
   display: grid;
   gap: 20px;
 }
 
-
 .hero-grid {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 20px;
 }
-
 
 .streak-hero {
   display: flex;
@@ -725,7 +531,6 @@ p {
   border: 1px solid rgba(96, 165, 250, 0.25);
 }
 
-
 .streak-main {
   font-size: 4.4rem;
   font-weight: 900;
@@ -734,20 +539,17 @@ p {
   margin: 4px 0 10px;
 }
 
-
 .streak-label {
   font-size: 1rem;
   font-weight: 800;
   color: #dbeafe;
 }
 
-
 .streak-sub {
   margin-top: 10px;
   color: #c9d7f0;
   line-height: 1.45;
 }
-
 
 .dashboard-grid.two-up {
   display: grid;
@@ -756,13 +558,6 @@ p {
   margin-top: 24px;
 }
 
-@media (max-width: 768px) {
-  .dashboard-grid.two-up {
-    grid-template-columns: 1fr;
-  }
-}
-
-
 .profile-grid,
 .plan-summary-grid {
   display: grid;
@@ -770,14 +565,12 @@ p {
   gap: 14px;
 }
 
-
 .info-card {
   border-radius: 18px;
   background: rgba(15, 23, 42, 0.52);
   border: 1px solid rgba(148, 163, 184, 0.14);
   padding: 16px;
 }
-
 
 .info-label {
   font-size: 0.82rem;
@@ -788,7 +581,6 @@ p {
   margin-bottom: 6px;
 }
 
-
 .info-value {
   font-size: 1.08rem;
   line-height: 1.35;
@@ -797,7 +589,6 @@ p {
   word-break: break-word;
 }
 
-
 .info-sub {
   margin-top: 8px;
   color: #c9d7f0;
@@ -805,13 +596,11 @@ p {
   font-size: 0.95rem;
 }
 
-
 .records-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
-
 
 .record-card {
   border-radius: 18px;
@@ -820,7 +609,6 @@ p {
   padding: 16px;
   min-height: 148px;
 }
-
 
 .record-title {
   font-size: 0.82rem;
@@ -831,7 +619,6 @@ p {
   margin-bottom: 10px;
 }
 
-
 .record-value {
   font-size: 1.7rem;
   font-weight: 900;
@@ -840,31 +627,27 @@ p {
   margin-bottom: 10px;
 }
 
-
 .record-note {
   font-size: 0.94rem;
   color: #d6e4f8;
   line-height: 1.45;
 }
 
-
 .today-wrap {
   display: grid;
   gap: 14px;
 }
-
 
 .today-card,
 .readiness-box,
 .exercise-box,
 .session-block {
   border-radius: 20px;
-  background: rgba(10, 19, 36, 0.40);
+  background: rgba(10, 19, 36, 0.4);
   border: 1px solid rgba(148, 163, 184, 0.12);
   padding: 20px;
   margin-bottom: 8px;
 }
-
 
 .block-title {
   font-size: 0.92rem;
@@ -875,16 +658,13 @@ p {
   margin-bottom: 10px;
 }
 
-
 .day-top,
-.exercise-head,
-.preview-workout-top {
+.exercise-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 14px;
 }
-
 
 .day-label,
 .exercise-name {
@@ -894,7 +674,6 @@ p {
   color: #fff;
 }
 
-
 .day-title,
 .exercise-sub,
 .day-meta {
@@ -902,12 +681,10 @@ p {
   line-height: 1.45;
 }
 
-
 .day-meta {
   font-size: 0.92rem;
   margin-top: 6px;
 }
-
 
 .badge,
 .chip {
@@ -919,27 +696,19 @@ p {
   font-size: 0.8rem;
   font-weight: 800;
   white-space: nowrap;
-}
-
-
-.badge,
-.chip {
   background: rgba(59, 130, 246, 0.18);
   color: #dbeafe;
 }
-
 
 .badge.warn {
   background: rgba(245, 158, 11, 0.18);
   color: #fde68a;
 }
 
-
 .chip.neutral {
   background: rgba(148, 163, 184, 0.18);
   color: #e2e8f0;
 }
-
 
 .readiness-grid {
   display: grid;
@@ -947,12 +716,10 @@ p {
   gap: 12px;
 }
 
-
 .track-list {
   display: grid;
   gap: 10px;
 }
-
 
 .track-item {
   display: flex;
@@ -964,12 +731,10 @@ p {
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
-
 .track-item input[type="checkbox"] {
   width: auto;
   margin: 0;
 }
-
 
 .exercise-meta {
   display: flex;
@@ -977,7 +742,6 @@ p {
   gap: 8px;
   margin: 8px 0 10px;
 }
-
 
 .meta-pill {
   display: inline-flex;
@@ -991,7 +755,6 @@ p {
   font-weight: 700;
 }
 
-
 .goal-load-box {
   margin: 12px 0;
   padding: 12px 14px;
@@ -1002,7 +765,6 @@ p {
   line-height: 1.45;
 }
 
-
 .set-grid {
   display: grid;
   grid-template-columns: 72px 1fr 120px;
@@ -1010,19 +772,16 @@ p {
   align-items: center;
 }
 
-
 .set-grid.header {
   font-weight: 800;
   color: #dbeafe;
   margin-bottom: 6px;
 }
 
-
 .set-goal {
   font-weight: 700;
   color: #fff;
 }
-
 
 .load-grid {
   display: grid;
@@ -1030,7 +789,6 @@ p {
   gap: 10px;
   margin-top: 12px;
 }
-
 
 .small-input {
   margin: 0;
@@ -1042,7 +800,6 @@ p {
   color: #fff;
 }
 
-
 .small-textarea {
   width: 100%;
   min-height: 72px;
@@ -1053,13 +810,11 @@ p {
   color: #fff;
 }
 
-
 .week-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
-
 
 .week-card,
 .week-mini-card {
@@ -1069,7 +824,6 @@ p {
   border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-
 .week-card-title,
 .week-mini-label {
   font-size: 1rem;
@@ -1078,7 +832,6 @@ p {
   margin-bottom: 6px;
 }
 
-
 .week-card-sub,
 .week-mini-sub {
   color: #d6e4f8;
@@ -1086,18 +839,15 @@ p {
   line-height: 1.45;
 }
 
-
 .weeks-ahead-wrap {
   display: grid;
   gap: 18px;
 }
 
-
 .week-section {
   display: grid;
   gap: 12px;
 }
-
 
 .week-title {
   font-size: 1.08rem;
@@ -1105,13 +855,11 @@ p {
   color: #fff;
 }
 
-
 .week-mini-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
-
 
 @media (max-width: 1080px) {
   .hero-grid,
@@ -1120,13 +868,11 @@ p {
     grid-template-columns: 1fr;
   }
 
-
   .planner-card,
   .planner-summary-card {
     min-height: auto;
   }
 }
-
 
 @media (max-width: 900px) {
   .profile-grid,
@@ -1144,22 +890,18 @@ p {
   }
 }
 
-
 @media (max-width: 720px) {
   .container {
     width: min(100% - 16px, 100%);
   }
 
-
   .topbar {
     padding: 14px 14px;
   }
 
-
   .brand {
     font-size: 1.5rem;
   }
-
 
   .section-title-row,
   .day-top,
@@ -1169,13 +911,11 @@ p {
     align-items: flex-start;
   }
 
-
   .button-row,
   .topbar-actions {
     flex-direction: column;
     align-items: stretch;
   }
-
 
   .streak-main {
     font-size: 3.4rem;
