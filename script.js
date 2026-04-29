@@ -710,7 +710,6 @@ function trimWorkingSets(exercises, maxWorkingSets) {
 function buildPlan(formData) {
   const age = getAgeFromDob(formData.dob);
   const caps = getSessionCaps(age || 18, formData.sessionLength);
-  const slots = getWorkoutSlots(formData);
   const startDate = formData.startDate || toISODate(new Date());
   const weeks = [];
   const records = {
@@ -732,6 +731,7 @@ function buildPlan(formData) {
 
   for (let week = 1; week <= 4; week += 1) {
     const isDeload = week === 4;
+    const slots = getWorkoutSlots(formData, week);
     const workouts = slots.map((slot, index) => {
       const date = toISODate(addDays(new Date(`${startDate}T12:00:00`), ((week - 1) * 7) + index));
       const label = String.fromCharCode(65 + index);
