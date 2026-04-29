@@ -1357,27 +1357,59 @@ function renderExerciseCard(exercise, date, existing) {
 
 function renderToday(plan, tracker, todayBox) {
   const today = toISODate(new Date());
-  const workouts = plan.weeks.flatMap((week) => week.workouts);
-  const current = workouts.find((workout) => workout.date === today) || workouts[0];
+  const allWeeks = plan.weeks || [];
+  const activeWeek =
+    allWeeks.find((week) => week.workouts.some((workout) => workout.date === today)) ||
+    allWeeks[0];
 
-  if (!current) {
+  const weekWorkouts = activeWeek?.workouts || [];
+  if (!weekWorkouts.length) {
     todayBox.innerHTML = `<div class="empty-box">No workout is available yet.</div>`;
     return;
+  }
+
+  let selectedWorkoutId = getSelectedWorkoutId(plan.createdAt);
+  let current =
+    weekWorkouts.find((workout) => workout.id === selectedWorkoutId) ||
+    weekWorkouts[0];
+
+  if (!selectedWorkoutId || selectedWorkoutId !== current.id) {
+    saveSelectedWorkoutId(plan.createdAt, current.id);
   }
 
   const dayData = tracker.days?.[current.date] || {};
   const readiness = getReadinessSummary(dayData);
   const displayWorkout = getAdjustedWorkout(current, readiness);
+  const readinessLocked = !readiness;
 
   todayBox.innerHTML = `
+    <div class="today-tabs">
+      ${weekWorkouts
+        .map((workout) => {
+          const label = safeText(workout.workoutLabel).replace("Workout", "Day");
+          return `
+            <button
+              type="button"
+              class="day-tab ${workout.id === current.id ? "active" : ""}"
+              data-workout-tab="${workout.id}"
+            >
+              ${label}
+            </button>
+          `;
+        })
+        .join("")}
+    </div>
+
     <div class="today-card">
       <div class="day-top">
         <div>
-          <div class="day-label">${safeText(displayWorkout.workoutLabel)}</div>
+          <div class="day-label">${safeText(displayWorkout.workoutLabel).replace("Workout", "Day")}</div>
           <div class="day-title">${safeText(displayWorkout.name)}</div>
           <div class="day-meta">${safeText(displayWorkout.description)} • ${safeText(displayWorkout.dateLabel)}</div>
         </div>
-        <span class="badge ${displayWorkout.isDeload ? "warn" : ""}">${displayWorkout.isDeload ? "Deload" : "Planned"}</span>
+        <span class="badge ${displayWorkout.isDeload ? "warn" : ""}">
+          ${displayWorkout.isDeload ? "Deload" : "Planned"}
+        </span>
       </div>
 
       <div class="readiness-box">
@@ -1399,7 +1431,13 @@ function renderToday(plan, tracker, todayBox) {
         <div class="button-row">
           <button type="button" id="saveReadinessBtn">Save readiness</button>
         </div>
-        <div class="small-note">${readiness ? `${readiness.label}. ${readiness.note}` : "Set readiness before logging the workout."}</div>
+        <div class="small-note">
+          ${
+            readiness
+              ? `${readiness.label}. ${readiness.note}`
+              : "Set readiness first. Workout logging stays locked until readiness is saved."
+          }
+        </div>
       </div>
 
       <div class="session-block">
@@ -1407,7 +1445,9 @@ function renderToday(plan, tracker, todayBox) {
         ${renderTrackerChecklist(displayWorkout.warmup, "warmup", current.date, tracker)}
       </div>
 
-      ${(displayWorkout.exercises || []).map((exercise) => renderExerciseCard(exercise, current.date, dayData[exercise.id])).join("")}
+      ${(displayWorkout.exercises || [])
+        .map((exercise) => renderExerciseCard(exercise, current.date, dayData[exercise.id]))
+        .join("")}
 
       <div class="session-block">
         <div class="block-title">Cooldown</div>
@@ -1415,24 +1455,33 @@ function renderToday(plan, tracker, todayBox) {
       </div>
 
       <div class="button-row">
-        <button type="button" id="saveWorkoutBtn">Save workout</button>
+        <button type="button" id="saveWorkoutBtn" ${readinessLocked ? "disabled" : ""}>Save workout</button>
       </div>
     </div>
   `;
 
+  qsa("[data-workout-tab]", todayBox).forEach((btn) => {
+    btn.addEventListener("click", () => {
+      saveSelectedWorkoutId(plan.createdAt, btn.dataset.workoutTab);
+      initDashboard();
+    });
+  });
+
   byId("saveReadinessBtn")?.addEventListener("click", () => {
     const next = getTracker(plan.createdAt);
     if (!next.days[current.date]) next.days[current.date] = {};
+
     next.days[current.date]._readiness = {
       sleepHours: byId("sleepHours")?.value || "",
       soreness: byId("soreness")?.value || "",
       energy: byId("energy")?.value || ""
     };
+
     saveTracker(plan.createdAt, next);
     initDashboard();
   });
 
-  qsa('[data-track-bucket]').forEach((checkbox) => {
+  qsa("[data-track-bucket]", todayBox).forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
       const next = getTracker(plan.createdAt);
       const date = checkbox.dataset.trackDate;
@@ -1444,19 +1493,29 @@ function renderToday(plan, tracker, todayBox) {
     });
   });
 
-  qsa('[data-log-kind="mode"]').forEach((select) => {
+  qsa('[data-log-kind="mode"]', todayBox).forEach((select) => {
     select.addEventListener("change", () => {
       const loadInput = byId(`${select.dataset.exerciseId}-load`);
       if (loadInput) loadInput.disabled = select.value === "normal";
     });
   });
 
+  if (readinessLocked) {
+    qsa("[data-log-kind]", todayBox).forEach((el) => {
+      el.disabled = true;
+    });
+    qsa("[data-track-bucket]", todayBox).forEach((el) => {
+      el.disabled = true;
+    });
+  }
+
   byId("saveWorkoutBtn")?.addEventListener("click", () => {
     const currentTracker = getTracker(plan.createdAt);
     if (!currentTracker.days[current.date]) currentTracker.days[current.date] = {};
-    const readiness = getReadinessSummary(currentTracker.days[current.date]);
-    if (!readiness) {
-      alert("Set readiness first.");
+
+    const readinessNow = getReadinessSummary(currentTracker.days[current.date]);
+    if (!readinessNow) {
+      alert("Save readiness first.");
       return;
     }
 
@@ -1473,9 +1532,20 @@ function renderToday(plan, tracker, todayBox) {
         return;
       }
 
-      const values = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="set"]`).map((input) => toNumber(input.value, 0)).filter((v) => v > 0);
-      const mode = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="mode"]`)[0]?.value || "normal";
-      const loadValue = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="load"]`)[0]?.value || "";
+      const values = qsa(
+        `[data-exercise-id="${exercise.id}"][data-log-kind="set"]`,
+        todayBox
+      )
+        .map((input) => toNumber(input.value, 0))
+        .filter((v) => v > 0);
+
+      const mode =
+        qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="mode"]`, todayBox)[0]
+          ?.value || "normal";
+
+      const loadValue =
+        qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="load"]`, todayBox)[0]
+          ?.value || "";
 
       if ((mode === "load" || mode === "assistance") && !String(loadValue).trim()) {
         loadError = `${exercise.name}: enter a load or assistance value.`;
