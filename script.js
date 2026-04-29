@@ -1,1368 +1,1681 @@
-// Static Frontend-Only Application
-// Persistence: localStorage
-// Routing: state-based / file-based
+const STORAGE_KEYS = {
+  token: "fitnessplan_token",
+  user: "fitnessplan_user",
+  currentPlan: "fitnessplan_current_plan",
+  plannerDraft: "fitnessplan_planner_draft",
+  trackerPrefix: "fitnessplan_tracker_"
+};
 
 document.addEventListener("DOMContentLoaded", () => {
-    const page = document.body.dataset.page;
-
-    if (page === "planner") {
-        initPlanner();
-    } else if (page === "dashboard") {
-        initDashboard();
-    }
+  const page = document.body?.dataset?.page || "";
+  if (page === "planner") initPlanner();
+  if (page === "dashboard") initDashboard();
 });
 
-/**
- * MOCK PERSISTENCE LAYER
- */
+function byId(id) {
+  return document.getElementById(id);
+}
+
+function qs(selector, root = document) {
+  return root.querySelector(selector);
+}
+
+function qsa(selector, root = document) {
+  return Array.from(root.querySelectorAll(selector));
+}
+
+function safeText(value, fallback = "Not set yet") {
+  if (value === null || value === undefined) return fallback;
+  const str = String(value).trim();
+  return str ? str : fallback;
+}
+
+function toNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function unique(values) {
+  return [...new Set(values)];
+}
+
+function titleCase(value) {
+  return String(value || "")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function formatDateLabel(dateLike) {
+  const date = typeof dateLike === "string" ? new Date(`${dateLike}T12:00:00`) : dateLike;
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "Date not set";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function toISODate(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function addDays(dateLike, days) {
+  const d = new Date(dateLike);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function parseTimeToSeconds(value) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const parts = text.split(":").map((p) => Number(p));
+  if (parts.some((p) => !Number.isFinite(p))) return null;
+  if (parts.length === 2) return (parts[0] * 60) + parts[1];
+  if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+  return null;
+}
+
+function formatSeconds(totalSeconds) {
+  const sec = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const min = Math.floor(sec / 60);
+  const rem = sec % 60;
+  return `${min}:${String(rem).padStart(2, "0")}`;
+}
+
+function parseFirstNumber(value) {
+  const match = String(value || "").match(/-?\d+(\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
 function getToken() {
-    return localStorage.getItem("fitnessplan_token") || "mock-token";
+  return localStorage.getItem(STORAGE_KEYS.token) || "";
 }
 
 function getUser() {
-    const u = localStorage.getItem("fitnessplan_user");
-    return u ? JSON.parse(u) : { username: "Guest Master", email: "master@fitness.local" };
-}
-
-function isLoggedIn() {
-    return !!localStorage.getItem("fitnessplan_token");
-}
-
-function saveLocalPlan(planData) {
-    planData.version = 2;
-    localStorage.setItem("fitnessplan_current_plan", JSON.stringify(planData));
-}
-
-function getLocalPlan() {
-    const p = localStorage.getItem("fitnessplan_current_plan");
-    if (p) {
-        const parsed = JSON.parse(p);
-        if (parsed.version !== 2) return null;
-        return parsed;
-    }
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || "null");
+  } catch {
     return null;
+  }
 }
 
-/**
- * PLANNER
- */
+function setStatus(el, text, type = "") {
+  if (!el) return;
+  el.textContent = text;
+  el.className = "status-box";
+  if (type) el.classList.add(type);
+}
+
+function getPlannerDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.plannerDraft) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function savePlannerDraft(draft) {
+  localStorage.setItem(STORAGE_KEYS.plannerDraft, JSON.stringify(draft));
+}
+
+function getCurrentPlan() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.currentPlan) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveCurrentPlan(plan) {
+  localStorage.setItem(STORAGE_KEYS.currentPlan, JSON.stringify(plan));
+}
+
+function getTrackerKey(planId = "local") {
+  const user = getUser();
+  const userId = user?.email || "guest";
+  return `${STORAGE_KEYS.trackerPrefix}${userId}_${planId}`;
+}
+
+function getTracker(planId = "local") {
+  try {
+    return JSON.parse(localStorage.getItem(getTrackerKey(planId)) || '{"days":{}}');
+  } catch {
+    return { days: {} };
+  }
+}
+
+function saveTracker(planId, tracker) {
+  localStorage.setItem(getTrackerKey(planId), JSON.stringify(tracker));
+}
+
+function getAgeFromDob(dobValue) {
+  if (!dobValue) return null;
+  const dob = new Date(`${dobValue}T12:00:00`);
+  if (Number.isNaN(dob.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age -= 1;
+  return age;
+}
+
+function getAgeBand(age) {
+  if (age === null || age === undefined) return "Not set yet";
+  if (age < 9) return "Under minimum age";
+  if (age <= 12) return "Youth Beginner";
+  if (age <= 15) return "Youth Intermediate";
+  if (age <= 17) return "Youth Advanced";
+  return "Adult Standard";
+}
+
+function getSafetyMode(age) {
+  return age < 18 ? "Youth-safe mode" : "Standard safe mode";
+}
+
+const PUSH_VARIATIONS = [
+  { value: "none", name: "Cannot do one yet", level: 0, maxLabel: "none" },
+  { value: "plank", name: "Plank (Floor)", level: 1, maxLabel: "seconds" },
+  { value: "scapula", name: "Scapula Push-ups", level: 2 },
+  { value: "wall", name: "Wall Push-ups", level: 3 },
+  { value: "incline", name: "Incline Push-ups", level: 4 },
+  { value: "knee", name: "Knee Push-ups", level: 5 },
+  { value: "negatives", name: "Negative Push-ups", level: 6 },
+  { value: "regular", name: "Regular Push-ups", level: 7 },
+  { value: "wide", name: "Wide Push-ups", level: 8 },
+  { value: "diamond", name: "Diamond Push-ups", level: 9 },
+  { value: "tricep", name: "Tricep Extensions", level: 10 },
+  { value: "exploding", name: "Power Push-ups", level: 11 },
+  { value: "archer", name: "Archer Push-ups", level: 12 },
+  { value: "one-arm-archer", name: "One-Arm Archer Push-ups", level: 13 },
+  { value: "pike", name: "Pike Push-Ups", level: 14 },
+  { value: "hspu-wall", name: "Wall Handstand Push-Ups", level: 15 }
+];
+
+const PULL_VARIATIONS = [
+  { value: "none", name: "Cannot do one yet", level: 0 },
+  { value: "dead-hang", name: "Dead Hang", level: 1, targetType: "seconds" },
+  { value: "scapula", name: "Scapular Pull-ups", level: 2 },
+  { value: "active-hang", name: "Active Hang", level: 3, targetType: "seconds" },
+  { value: "negatives", name: "Negative Pull-ups", level: 4 },
+  { value: "assisted", name: "Band-Assisted Pull-ups", level: 5, defaultLoadMode: "assistance" },
+  { value: "regular", name: "Regular Pull-ups", level: 6 },
+  { value: "wide", name: "Wide Pull-ups", level: 7 },
+  { value: "archer", name: "Archer Pull-ups", level: 8 },
+  { value: "weighted", name: "Weighted Pull-ups", level: 9, defaultLoadMode: "load" },
+  { value: "muscle-up", name: "Muscle Up", level: 10 }
+];
+
+const SQUAT_VARIATIONS = [
+  { value: "none", name: "Cannot do one yet", level: 0 },
+  { value: "box", name: "Box Squats", level: 1 },
+  { value: "assisted", name: "Assisted Squats", level: 2 },
+  { value: "regular", name: "Regular Bodyweight Squats", level: 3 },
+  { value: "split", name: "Split Squats / Lunges", level: 4 },
+  { value: "bulgarian", name: "Bulgarian Split Squats", level: 5 },
+  { value: "pistol-assisted", name: "Assisted Pistol Squats", level: 6 },
+  { value: "pistol", name: "Pistol Squats", level: 7 }
+];
+
+function findVariation(list, value) {
+  return list.find((item) => item.value === value) || list[0];
+}
+
+function getSafeProgression(list, chosenValue, maxReps, weekOffset = 0) {
+  let idx = list.findIndex((item) => item.value === chosenValue);
+  if (idx < 0) idx = 0;
+
+  const max = toNumber(maxReps, 0);
+  if (max > 0 && max < 4) idx = Math.max(1, idx - 2);
+  else if (max > 0 && max < 8) idx = Math.max(1, idx - 1);
+
+  idx = Math.min(list.length - 1, idx + Math.max(0, weekOffset));
+  return list[idx] || list[0];
+}
+
+function hasEquipment(formData, item) {
+  return (formData.equipment || []).includes(item);
+}
+
+function getSupportedPushVariation(formData) {
+  const chosen = formData.pushVariation || "knee";
+  if (chosen === "incline" && !(hasEquipment(formData, "bench") || hasEquipment(formData, "none"))) {
+    return "wall";
+  }
+  if ((chosen === "pike" || chosen === "hspu-wall") && formData.pushupMax < 3) {
+    return "knee";
+  }
+  return chosen;
+}
+
+function getPullFallbackProfile(formData) {
+  const hasBar = hasEquipment(formData, "pullup-bar");
+  const hasBands = hasEquipment(formData, "bands");
+
+  if (hasBar) return { mode: "bar" };
+  if (hasBands) return { mode: "bands" };
+  return { mode: "floor" };
+}
+
+function getSessionCaps(age, sessionLength) {
+  const length = toNumber(sessionLength, 60);
+  if (age <= 12) {
+    return {
+      ageBand: "Youth Beginner",
+      maxSetsPerExercise: length === 30 ? 2 : 3,
+      maxWorkingSets: length === 30 ? 6 : length === 60 ? 9 : 11,
+      compoundRest: 90,
+      accessoryRest: 60,
+      hypertrophyRange: [8, 12]
+    };
+  }
+  if (age <= 15) {
+    return {
+      ageBand: "Youth Intermediate",
+      maxSetsPerExercise: length === 30 ? 2 : 4,
+      maxWorkingSets: length === 30 ? 8 : length === 60 ? 12 : 15,
+      compoundRest: 90,
+      accessoryRest: 60,
+      hypertrophyRange: [8, 12]
+    };
+  }
+  if (age <= 17) {
+    return {
+      ageBand: "Youth Advanced",
+      maxSetsPerExercise: 4,
+      maxWorkingSets: length === 30 ? 9 : length === 60 ? 14 : 18,
+      compoundRest: 90,
+      accessoryRest: 60,
+      hypertrophyRange: [6, 12]
+    };
+  }
+  return {
+    ageBand: "Adult Standard",
+    maxSetsPerExercise: 5,
+    maxWorkingSets: length === 30 ? 10 : length === 60 ? 16 : 20,
+    compoundRest: 105,
+    accessoryRest: 60,
+    hypertrophyRange: [6, 12]
+  };
+}
+
+function getWorkoutSlots(formData) {
+  const days = toNumber(formData.daysPerWeek, 3);
+  const focus = formData.focus || [];
+  const strengthGoals = formData.strengthGoals || [];
+  const enduranceTypes = formData.enduranceType || [];
+
+  const slots = [];
+  const wantsStrength = focus.includes("strength") || strengthGoals.length > 0;
+  const wantsEndurance = focus.includes("endurance") || focus.includes("cardio");
+  const wantsFlexibility = focus.includes("flexibility");
+
+  if (wantsStrength) {
+    if (strengthGoals.includes("push") || strengthGoals.length === 0) slots.push({ kind: "strength", emphasis: "push", label: "Push Path" });
+    if (strengthGoals.includes("pull") || strengthGoals.length === 0) slots.push({ kind: "strength", emphasis: "pull", label: "Pull Path" });
+    if (strengthGoals.includes("squat") || strengthGoals.length === 0) slots.push({ kind: "strength", emphasis: "legs", label: "Leg Path" });
+  }
+
+  if (wantsEndurance) {
+    const types = enduranceTypes.length ? enduranceTypes : ["running"];
+    slots.push({ kind: "endurance", emphasis: types[0], label: `${titleCase(types[0])} Engine` });
+    const secondType = types[1] || `${types[0]}-variation`;
+    slots.push({ kind: "endurance", emphasis: secondType, label: secondType.includes("-variation") ? `${titleCase(types[0])} Variation` : `${titleCase(secondType)} Engine` });
+  }
+
+  if (wantsFlexibility) {
+    slots.push({ kind: "mobility", emphasis: "mobility", label: "Mobility Reset" });
+  }
+
+  if (!slots.length) {
+    slots.push({ kind: "strength", emphasis: "push", label: "Push Path" });
+    slots.push({ kind: "strength", emphasis: "pull", label: "Pull Path" });
+    slots.push({ kind: "strength", emphasis: "legs", label: "Leg Path" });
+  }
+
+  const trimmed = [];
+  let idx = 0;
+  while (trimmed.length < days) {
+    trimmed.push({ ...slots[idx % slots.length] });
+    idx += 1;
+  }
+  return trimmed.slice(0, days);
+}
+
+function makeWarmup(slot, age) {
+  const enduranceWarmup = [
+    { text: "Easy movement", targetType: "minutes", target: 4, note: "Build gradually." },
+    { text: "Joint prep", targetType: "reps", target: 8, note: "Keep it smooth." },
+    { text: "Short build-ups", targetType: "reps", target: 2, note: "Only if form feels good." }
+  ];
+  const strengthWarmup = [
+    { text: "Easy movement", targetType: "minutes", target: 3, note: "Wake up the body." },
+    { text: "Prep mobility", targetType: "reps", target: age <= 12 ? 6 : 8, note: "Controlled range." },
+    { text: "Movement rehearsal", targetType: "reps", target: 6, note: "Practice clean form." }
+  ];
+  const mobilityWarmup = [
+    { text: "Easy walk or march", targetType: "minutes", target: 3, note: "Relax into movement." },
+    { text: "Gentle circles", targetType: "reps", target: 8, note: "No forcing range." }
+  ];
+  return slot.kind === "endurance" ? enduranceWarmup : slot.kind === "mobility" ? mobilityWarmup : strengthWarmup;
+}
+
+function makeCooldown(slot) {
+  if (slot.kind === "endurance") {
+    return [
+      { text: "Easy walk", targetType: "minutes", target: 3, note: "Bring heart rate down." },
+      { text: "Calf stretch", targetType: "seconds", target: 30, note: "Each side." },
+      { text: "Hip flexor stretch", targetType: "seconds", target: 30, note: "Each side." }
+    ];
+  }
+  if (slot.kind === "mobility") {
+    return [
+      { text: "Breathing reset", targetType: "minutes", target: 2, note: "Slow breaths." },
+      { text: "Relaxed stretch", targetType: "seconds", target: 30, note: "No forcing range." }
+    ];
+  }
+  return [
+    { text: "Easy walk", targetType: "minutes", target: 2, note: "Reset after the session." },
+    { text: "Chest or back stretch", targetType: "seconds", target: 30, note: "Pick what feels tight." },
+    { text: "Hip stretch", targetType: "seconds", target: 30, note: "Stay relaxed." }
+  ];
+}
+
+function buildExercise({ id, name, category, targetType, targets, tempo, rest, loadMode = "normal", goalLoadText = "", note = "", progressionText = "", test = false, tags = [] }) {
+  return {
+    id,
+    name,
+    category,
+    targetType,
+    targets,
+    tempo,
+    rest,
+    loadMode,
+    goalLoadText,
+    note,
+    progressionText,
+    test,
+    tags
+  };
+}
+
+function getPushExercise(formData, week, isDeload, caps) {
+  const chosen = getSafeProgression(PUSH_VARIATIONS, getSupportedPushVariation(formData), formData.pushupMax || 0, isDeload ? 0 : week > 2 ? 1 : 0);
+  const max = toNumber(formData.pushupMax, 0);
+  const rangeMin = caps.hypertrophyRange[0];
+  const rangeMax = caps.hypertrophyRange[1];
+  const sets = clamp(isDeload ? 2 : Math.min(3, caps.maxSetsPerExercise), 1, caps.maxSetsPerExercise);
+
+  let targets = [];
+  let note = "Stay 1 to 3 reps away from failure.";
+  let loadMode = "normal";
+  let goalLoadText = "Normal bodyweight. Prioritize clean reps.";
+
+  if (chosen.value === "none" || chosen.value === "plank") {
+    return buildExercise({
+      id: `push-${week}`,
+      name: "Front Plank Hold",
+      category: "push",
+      targetType: "seconds",
+      targets: Array.from({ length: Math.max(2, sets - 1) }, () => clamp(20 + ((week - 1) * 5), 15, Math.max(30, formData.plankMax || 45))),
+      tempo: "Brace hard and stay still",
+      rest: `${caps.accessoryRest}s`,
+      loadMode: "normal",
+      goalLoadText: "Normal bodyweight. Quality over time.",
+      note: "This is the safest starting push pattern right now.",
+      progressionText: "Earn stronger push variations before more volume."
+    });
+  }
+
+  if (max > 0) {
+    const safeTop = clamp(Math.floor(max * (isDeload ? 0.55 : 0.7)), 1, max);
+    const prescribed = clamp(safeTop + (week > 2 && !isDeload ? 1 : 0), 1, max);
+    targets = Array.from({ length: sets }, () => clamp(prescribed, rangeMin > max ? 1 : 1, Math.min(rangeMax, max)));
+  } else {
+    targets = Array.from({ length: sets }, () => chosen.value === "knee" ? 5 : chosen.value === "incline" ? 6 : 4);
+  }
+
+  if (["exploding", "archer", "one-arm-archer", "pike", "hspu-wall"].includes(chosen.value) && !formData.pushSkill?.length) {
+    note = "Stay controlled. Do not turn this into a max-out set.";
+  }
+
+  return buildExercise({
+    id: `push-${week}`,
+    name: chosen.name,
+    category: "push",
+    targetType: "reps",
+    targets,
+    tempo: chosen.value === "pike" || chosen.value === "hspu-wall" ? "3 sec down, light pause, drive up" : "2 sec down, light pause, controlled up",
+    rest: `${caps.compoundRest}s`,
+    loadMode,
+    goalLoadText,
+    note,
+    progressionText: "Hit all clean reps before progressing the variation."
+  });
+}
+
+function getPullExercise(formData, week, isDeload, caps) {
+  const equipmentProfile = getPullFallbackProfile(formData);
+  const chosen = getSafeProgression(PULL_VARIATIONS, formData.pullVariation || "assisted", formData.pullupMax || 0, isDeload ? 0 : week > 2 ? 1 : 0);
+  const max = toNumber(formData.pullupMax, 0);
+  const sets = clamp(isDeload ? 2 : Math.min(3, caps.maxSetsPerExercise), 1, caps.maxSetsPerExercise);
+
+  if (equipmentProfile.mode === "floor") {
+    const rowTargets = Array.from({ length: sets }, () => {
+      if (max > 0) return clamp(Math.max(3, Math.floor(max * (isDeload ? 0.55 : 0.7))), 3, Math.max(4, max));
+      return isDeload ? 5 : 6 + Math.min(week - 1, 2);
+    });
+
+    return buildExercise({
+      id: `pull-${week}`,
+      name: "Back Widows",
+      category: "pull",
+      targetType: "reps",
+      targets: rowTargets,
+      tempo: "Pull smooth, squeeze, lower under control",
+      rest: `${caps.compoundRest}s`,
+      loadMode: "normal",
+      goalLoadText: "Normal bodyweight. This replaces hanging work because no pull-up setup was selected.",
+      note: "Use a floor-based back pattern when no pull-up setup is available.",
+      progressionText: "Add clean reps before harder pull variations."
+    });
+  }
+
+  let targetType = "reps";
+  let targets = [];
+  let loadMode = chosen.defaultLoadMode || "normal";
+  let goalLoadText = "Normal bodyweight. Clean range first.";
+  let note = "Stop before form breaks.";
+
+  if (equipmentProfile.mode === "bands" && !["assisted", "negatives", "dead-hang", "active-hang"].includes(chosen.value)) {
+    loadMode = "assistance";
+    goalLoadText = "Assistance mode. Use bands to hit all clean reps.";
+  }
+
+  if (chosen.value === "assisted") {
+    const assistText = formData.pullAssistValue ? `${formData.pullAssistValue} ${formData.pullAssistUnit || "lbs"} assistance` : "Use enough assistance to hit all clean reps";
+    goalLoadText = `Assistance mode. ${assistText}.`;
+  }
+  if (chosen.value === "weighted") {
+    loadMode = "load";
+    goalLoadText = "Added load mode. Use a weight you can control.";
+  }
+
+  if (chosen.targetType === "seconds") {
+    targetType = "seconds";
+    const base = chosen.value === "dead-hang" ? 15 : 12;
+    targets = Array.from({ length: Math.max(2, sets - 1) }, () => base + ((week - 1) * (isDeload ? 0 : 3)));
+  } else if (max > 0) {
+    const safeTop = clamp(Math.floor(max * (isDeload ? 0.5 : 0.65)), 1, max);
+    const prescribed = clamp(safeTop + (week > 2 && !isDeload ? 1 : 0), 1, max);
+    targets = Array.from({ length: sets }, () => prescribed);
+  } else {
+    targets = Array.from({ length: sets }, () => chosen.value === "negatives" ? 3 : chosen.value === "assisted" ? 4 : 3);
+  }
+
+  const effectiveName = equipmentProfile.mode === "bands" && chosen.value === "assisted"
+    ? "Band-Assisted Pull-ups"
+    : chosen.name;
+
+  return buildExercise({
+    id: `pull-${week}`,
+    name: effectiveName,
+    category: "pull",
+    targetType,
+    targets,
+    tempo: chosen.value === "negatives" ? "Jump up, 4 sec lower" : targetType === "seconds" ? "Still body, strong grip" : "Pull smooth, lower under control",
+    rest: `${caps.compoundRest}s`,
+    loadMode,
+    goalLoadText,
+    note,
+    progressionText: chosen.value === "assisted" ? "Use less assistance only after all reps are clean." : "Progress only when every rep stays clean."
+  });
+}
+
+function getLegExercise(formData, week, isDeload, caps) {
+  const chosen = getSafeProgression(SQUAT_VARIATIONS, formData.squatVariation || "regular", formData.squatMax || 0, isDeload ? 0 : week > 2 ? 1 : 0);
+  const max = toNumber(formData.squatMax, 0);
+  const sets = clamp(isDeload ? 2 : Math.min(4, caps.maxSetsPerExercise), 1, caps.maxSetsPerExercise);
+  const equipment = formData.equipment || [];
+  const weighted = equipment.includes("dumbbells") || equipment.includes("bench");
+  const name = weighted && ["regular", "split", "bulgarian"].includes(chosen.value) ? (chosen.value === "split" ? "Loaded Split Squats" : "Goblet Squats") : chosen.name;
+
+  let targets;
+  if (max > 0) {
+    const safeTop = clamp(Math.floor(max * (isDeload ? 0.55 : 0.7)), 1, max);
+    const prescribed = clamp(safeTop + (week > 2 && !isDeload ? 2 : 0), 1, max);
+    targets = Array.from({ length: sets }, () => prescribed);
+  } else {
+    targets = Array.from({ length: sets }, () => chosen.value === "box" ? 6 : 8);
+  }
+
+  return buildExercise({
+    id: `legs-${week}`,
+    name,
+    category: "legs",
+    targetType: "reps",
+    targets,
+    tempo: "3 sec down, light pause, strong stand",
+    rest: `${caps.compoundRest}s`,
+    loadMode: weighted ? "load" : "normal",
+    goalLoadText: weighted ? "Added load mode. Keep the range clean." : "Normal bodyweight. Build clean depth first.",
+    note: "Do not grind. Stay smooth and upright.",
+    progressionText: "Add reps before load when possible."
+  });
+}
+
+function getCoreExercise(formData, week, isDeload, caps) {
+  const sets = Math.max(2, Math.min(3, caps.maxSetsPerExercise));
+  const plankBase = clamp(toNumber(formData.plankMax, 30), 10, 300);
+  const target = clamp(Math.floor(plankBase * (isDeload ? 0.65 : 0.8)) + ((week - 1) * (isDeload ? 0 : 4)), 12, plankBase);
+  return buildExercise({
+    id: `core-${week}`,
+    name: "Plank Hold",
+    category: "core",
+    targetType: "seconds",
+    targets: Array.from({ length: sets }, () => target),
+    tempo: "Brace hard and breathe steadily",
+    rest: `${caps.accessoryRest}s`,
+    loadMode: "normal",
+    goalLoadText: "Normal bodyweight. Strong position first.",
+    note: "Stop if hips sag or breathing becomes frantic.",
+    progressionText: "Build clean time before harder variations."
+  });
+}
+
+function getEnduranceWorkout(formData, slot, week, isDeload, caps) {
+  const type = String(slot.emphasis || "running").replace("-variation", "");
+  const label = type === "swimming" ? "Swim" : type === "cycling" ? "Ride" : "Run";
+  const baseDuration = Math.max(10, parseFirstNumber(formData.runDuration || "") || 20);
+  const intervalDay = slot.emphasis.includes("variation");
+  const adjustedDuration = clamp(Math.round(baseDuration * (isDeload ? 0.7 : intervalDay ? 0.8 : 1 + ((week - 1) * 0.08))), 10, 90);
+
+  const warmup = makeWarmup(slot, formData.age);
+  const cooldown = makeCooldown(slot);
+
+  const mainExercise = buildExercise({
+    id: `endurance-${type}-${week}-${intervalDay ? "var" : "steady"}`,
+    name: intervalDay ? `${titleCase(type)} Intervals` : `${titleCase(type)} Session`,
+    category: "endurance",
+    targetType: "minutes",
+    targets: [adjustedDuration],
+    tempo: intervalDay ? "Comfortably hard, controlled effort" : "Aerobic conversational pace",
+    rest: intervalDay ? "30 to 60s between repeats if needed" : "Steady continuous effort",
+    loadMode: "normal",
+    goalLoadText: intervalDay ? "Stay repeatable. Do not sprint every rep." : "Stay smooth and sustainable.",
+    note: type === "running" ? "Log distance covered or time completed." : "Log total time and any useful notes.",
+    progressionText: "Increase duration gradually. Do not jump both pace and volume."
+  });
+
+  return {
+    warmup,
+    exercises: [mainExercise],
+    cooldown,
+    description: intervalDay ? `${titleCase(type)} variation day` : `${titleCase(type)} endurance day`,
+    hypertrophy: false
+  };
+}
+
+function buildStrengthWorkout(formData, slot, week, isDeload, caps) {
+  const warmup = makeWarmup(slot, formData.age);
+  const cooldown = makeCooldown(slot);
+
+  const exercises = [];
+  if (slot.emphasis === "push") {
+    exercises.push(getPushExercise(formData, week, isDeload, caps));
+    exercises.push(getPullExercise(formData, week, isDeload, caps));
+    exercises.push(getCoreExercise(formData, week, isDeload, caps));
+  } else if (slot.emphasis === "pull") {
+    exercises.push(getPullExercise(formData, week, isDeload, caps));
+    exercises.push(getPushExercise(formData, week, isDeload, caps));
+    exercises.push(getCoreExercise(formData, week, isDeload, caps));
+  } else {
+    exercises.push(getLegExercise(formData, week, isDeload, caps));
+    exercises.push(getCoreExercise(formData, week, isDeload, caps));
+    if ((formData.focus || []).includes("strength")) exercises.push(getPushExercise(formData, week, true, caps));
+  }
+
+  const trimmed = trimWorkingSets(exercises, caps.maxWorkingSets);
+
+  return {
+    warmup,
+    exercises: trimmed,
+    cooldown,
+    description: `Strength focus on ${slot.emphasis}`,
+    hypertrophy: true
+  };
+}
+
+function buildMobilityWorkout(slot) {
+  const warmup = makeWarmup(slot, 18);
+  const cooldown = makeCooldown(slot);
+  const exercises = [
+    buildExercise({
+      id: "mobility-flow",
+      name: "Mobility Flow",
+      category: "mobility",
+      targetType: "minutes",
+      targets: [15],
+      tempo: "Slow, smooth, controlled range",
+      rest: "Move continuously",
+      loadMode: "normal",
+      goalLoadText: "No load needed.",
+      note: "Never force painful range.",
+      progressionText: "Aim for smoother movement, not bigger motion."
+    })
+  ];
+  return { warmup, exercises, cooldown, description: "Recovery and mobility", hypertrophy: false };
+}
+
+function trimWorkingSets(exercises, maxWorkingSets) {
+  let used = 0;
+  return exercises
+    .map((exercise) => {
+      if (exercise.targetType === "minutes") return exercise;
+      const available = Math.max(1, maxWorkingSets - used);
+      const limitedTargets = (exercise.targets || []).slice(0, available);
+      used += limitedTargets.length;
+      return { ...exercise, targets: limitedTargets };
+    })
+    .filter((exercise) => {
+      if (exercise.targetType === "minutes") return true;
+      return (exercise.targets || []).length > 0;
+    });
+}
+
+function buildPlan(formData) {
+  const age = getAgeFromDob(formData.dob);
+  const caps = getSessionCaps(age || 18, formData.sessionLength);
+  const slots = getWorkoutSlots(formData);
+  const startDate = formData.startDate || toISODate(new Date());
+  const weeks = [];
+  const records = {
+    mileTime: safeText(formData.mile, "Not logged yet"),
+    longestRun: safeText(formData.runDuration, "Not logged yet"),
+    longestRunDistance: safeText(formData.runDistance, "Not logged yet"),
+    pushBest: formData.pushVariation && formData.pushVariation !== "none"
+      ? `${findVariation(PUSH_VARIATIONS, formData.pushVariation).name}${formData.pushupMax ? ` • ${formData.pushupMax} reps` : ""}`
+      : "Not logged yet",
+    pullBest: formData.pullVariation && formData.pullVariation !== "none"
+      ? `${findVariation(PULL_VARIATIONS, formData.pullVariation).name}${formData.pullupMax ? ` • ${formData.pullupMax} reps` : formData.pullVariation === "assisted" && formData.pullAssistValue ? ` • ${formData.pullAssistValue} ${formData.pullAssistUnit}` : ""}`
+      : "Not logged yet",
+    squatBest: formData.squatVariation && formData.squatVariation !== "none"
+      ? `${findVariation(SQUAT_VARIATIONS, formData.squatVariation).name}${formData.squatMax ? ` • ${formData.squatMax} reps` : ""}`
+      : "Not logged yet",
+    plankBest: formData.plankMax ? `${formData.plankMax} sec` : "Not logged yet",
+    wallSitBest: formData.wallSit ? `${formData.wallSit} sec` : "Not logged yet"
+  };
+
+  for (let week = 1; week <= 4; week += 1) {
+    const isDeload = week === 4;
+    const workouts = slots.map((slot, index) => {
+      const date = toISODate(addDays(new Date(`${startDate}T12:00:00`), ((week - 1) * 7) + index));
+      const label = String.fromCharCode(65 + index);
+      const built = slot.kind === "endurance"
+        ? getEnduranceWorkout(formData, slot, week, isDeload, caps)
+        : slot.kind === "mobility"
+          ? buildMobilityWorkout(slot)
+          : buildStrengthWorkout(formData, slot, week, isDeload, caps);
+
+      return {
+        id: `week-${week}-day-${label}`,
+        week,
+        workoutLabel: `Workout ${label}`,
+        name: slot.label,
+        date,
+        dateLabel: formatDateLabel(date),
+        description: built.description,
+        duration: toNumber(formData.sessionLength, 60),
+        warmup: built.warmup,
+        exercises: built.exercises,
+        cooldown: built.cooldown,
+        isDeload,
+        includesHypertrophy: built.hypertrophy
+      };
+    });
+
+    weeks.push({
+      week,
+      label: `Week ${week}`,
+      note: isDeload ? "Deload week. Reduced stress to protect recovery." : week === 3 ? "Highest training week before deload." : "Build week.",
+      workouts
+    });
+  }
+
+  return {
+    version: 3,
+    createdAt: new Date().toISOString(),
+    profile: {
+      dob: formData.dob,
+      age,
+      ageBand: getAgeBand(age),
+      safetyMode: getSafetyMode(age || 18),
+      focus: formData.focus || [],
+      enduranceType: formData.enduranceType || [],
+      equipment: formData.equipment || [],
+      strengthGoals: formData.strengthGoals || [],
+      pushSkill: formData.pushSkill || [],
+      pullSkill: formData.pullSkill || [],
+      daysPerWeek: toNumber(formData.daysPerWeek, 3),
+      sessionLength: toNumber(formData.sessionLength, 60)
+    },
+    records,
+    weeks
+  };
+}
+
+function normalizeFormData(raw) {
+  const data = { ...(raw || {}) };
+  data.focus = unique(Array.isArray(data.focus) ? data.focus : []);
+  data.enduranceType = unique(Array.isArray(data.enduranceType) ? data.enduranceType : []);
+  data.equipment = unique(Array.isArray(data.equipment) ? data.equipment : []);
+  data.strengthGoals = unique(Array.isArray(data.strengthGoals) ? data.strengthGoals : []);
+  data.pushSkill = unique(Array.isArray(data.pushSkill) ? data.pushSkill : []);
+  data.pullSkill = unique(Array.isArray(data.pullSkill) ? data.pullSkill : []);
+  data.daysPerWeek = toNumber(data.daysPerWeek, 3);
+  data.sessionLength = toNumber(data.sessionLength, 60);
+  data.pushupMax = toNumber(data.pushupMax, 0);
+  data.pullupMax = toNumber(data.pullupMax, 0);
+  data.squatMax = toNumber(data.squatMax, 0);
+  data.plankMax = toNumber(data.plankMax, 0);
+  data.wallSit = toNumber(data.wallSit, 0);
+  data.pullAssistValue = toNumber(data.pullAssistValue, 0) || "";
+  return data;
+}
+
 function initPlanner() {
-    // All possible steps in order
-    const allSteps = [
-        "dob", "focus", "endurance-type", "equipment", "strength-goals", "push-skill", "pull-skill",
-        "days", "session-length",
-        "push-variation", "push-max", 
-        "pull-variation", "pull-assist", "pull-max", 
-        "squat-variation", "squat-max", "wall-sit",
-        "plank", "mile", "run-duration", "run-distance", "start-date"
-    ];
+  const statusBox = byId("plannerStatus");
+  const progressFill = byId("plannerStepProgress");
+  const nextBtn = byId("plannerNextBtn");
+  const backBtn = byId("plannerBackBtn");
+  const generateBtn = byId("generatePlanBtn");
+  const planSummaryPreview = byId("planSummaryPreview");
+  const weekPreview = byId("schedulePreview");
 
-    let currentStepIndex = 0;
-    const formData = {
-        focus: [],
-        enduranceType: [],
-        equipment: [],
-        strengthGoals: [],
-        pushSkill: [],
-        pullSkill: []
-    };
+  const allSteps = [
+    "dob",
+    "focus",
+    "endurance-type",
+    "equipment",
+    "strength-goals",
+    "push-skill",
+    "pull-skill",
+    "days",
+    "session-length",
+    "push-variation",
+    "push-max",
+    "pull-variation",
+    "pull-assist",
+    "pull-max",
+    "squat-variation",
+    "squat-max",
+    "wall-sit",
+    "plank",
+    "mile",
+    "run-duration",
+    "run-distance",
+    "start-date"
+  ];
 
-    const nextBtn = document.getElementById("plannerNextBtn");
-    const backBtn = document.getElementById("plannerBackBtn");
-    const generateBtn = document.getElementById("generatePlanBtn");
-    const progress = document.getElementById("plannerStepProgress");
-    const statusBox = document.getElementById("plannerStatus");
+  let formData = normalizeFormData(getPlannerDraft() || {});
+  let currentStepIndex = 0;
 
-    function getVisibleSteps() {
-        return allSteps.filter(step => {
-            if (step === "endurance-type") return formData.focus.includes("endurance");
-            if (step === "strength-goals") return formData.focus.includes("strength");
-            if (step === "push-skill") return formData.strengthGoals.includes("push");
-            if (step === "pull-skill") return formData.strengthGoals.includes("pull");
-            
-            // Skill variations
-            if (step === "push-variation") return formData.strengthGoals.includes("push");
-            if (step === "push-max") {
-                const vari = document.getElementById("pushVariation")?.value;
-                return formData.strengthGoals.includes("push") && vari !== "none";
-            }
-            if (step === "pull-variation") return formData.strengthGoals.includes("pull");
-            if (step === "pull-assist") {
-                const vari = document.getElementById("pullVariation")?.value;
-                return formData.strengthGoals.includes("pull") && vari === "assisted";
-            }
-            if (step === "pull-max") {
-                const vari = document.getElementById("pullVariation")?.value;
-                return formData.strengthGoals.includes("pull") && vari !== "none";
-            }
-            if (step === "squat-variation") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
-            if (step === "squat-max") {
-                const vari = document.getElementById("squatVariation")?.value;
-                return (formData.strengthGoals.includes("squat") || formData.focus.includes("strength")) && vari !== "none";
-            }
-            if (step === "wall-sit") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
-
-            // Endurance specific fields
-            if (step === "mile" || step === "run-duration" || step === "run-distance") {
-                return formData.focus.includes("endurance");
-            }
-
-            return true;
-        });
-    }
-
-    function updateStep() {
-        const visibleSteps = getVisibleSteps();
-        const currentStepId = visibleSteps[currentStepIndex];
-
-        document.querySelectorAll(".planner-step").forEach(s => s.classList.remove("active"));
-        const stepEl = document.getElementById(`step-${currentStepId}`);
-        if (stepEl) stepEl.classList.add("active");
-
-        progress.style.width = `${((currentStepIndex + 1) / visibleSteps.length) * 100}%`;
-
-        backBtn.classList.toggle("hidden", currentStepIndex === 0);
-        nextBtn.classList.toggle("hidden", currentStepIndex === visibleSteps.length - 1);
-        generateBtn.classList.toggle("hidden", currentStepIndex !== visibleSteps.length - 1);
-
-        statusBox.textContent = "Answer the questions to build your plan.";
-        statusBox.className = "status-box";
-        
-        setupEnterKey();
-    }
-
-    nextBtn.addEventListener("click", () => {
-        if (validateStep()) {
-            currentStepIndex++;
-            updateStep();
-            updateSummary();
-        }
+  function getVisibleSteps() {
+    return allSteps.filter((step) => {
+      if (step === "endurance-type") return formData.focus.includes("endurance");
+      if (step === "strength-goals") return formData.focus.includes("strength");
+      if (step === "push-skill") return formData.strengthGoals.includes("push");
+      if (step === "pull-skill") return formData.strengthGoals.includes("pull");
+      if (step === "push-variation") return formData.strengthGoals.includes("push") || formData.focus.includes("strength");
+      if (step === "push-max") return (formData.strengthGoals.includes("push") || formData.focus.includes("strength")) && formData.pushVariation && formData.pushVariation !== "none" && formData.pushVariation !== "plank";
+      if (step === "pull-variation") return formData.strengthGoals.includes("pull") || formData.focus.includes("strength");
+      if (step === "pull-assist") return formData.pullVariation === "assisted";
+      if (step === "pull-max") return (formData.strengthGoals.includes("pull") || formData.focus.includes("strength")) && formData.pullVariation && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation);
+      if (step === "squat-variation") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
+      if (step === "squat-max") return (formData.strengthGoals.includes("squat") || formData.focus.includes("strength")) && formData.squatVariation && formData.squatVariation !== "none";
+      if (step === "wall-sit") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
+      if (step === "mile" || step === "run-duration" || step === "run-distance") return formData.focus.includes("endurance") || formData.focus.includes("cardio");
+      return true;
     });
+  }
 
-    backBtn.addEventListener("click", () => {
-        currentStepIndex--;
+  function saveDraft() {
+    savePlannerDraft(formData);
+  }
+
+  function syncFromInputs() {
+    formData.dob = byId("dob")?.value || formData.dob || "";
+    formData.daysPerWeek = toNumber(byId("daysPerWeek")?.value, formData.daysPerWeek || 3);
+    formData.sessionLength = toNumber(byId("sessionLength")?.value, formData.sessionLength || 60);
+    formData.pushVariation = byId("pushVariation")?.value || formData.pushVariation || "";
+    formData.pushupMax = toNumber(byId("pushupMax")?.value, formData.pushupMax || 0);
+    formData.pullVariation = byId("pullVariation")?.value || formData.pullVariation || "";
+    formData.pullAssistValue = byId("pullAssistValue")?.value || formData.pullAssistValue || "";
+    formData.pullAssistUnit = byId("pullAssistUnit")?.value || formData.pullAssistUnit || "lbs";
+    formData.pullupMax = toNumber(byId("pullupMax")?.value, formData.pullupMax || 0);
+    formData.squatVariation = byId("squatVariation")?.value || formData.squatVariation || "";
+    formData.squatMax = toNumber(byId("squatMax")?.value, formData.squatMax || 0);
+    formData.wallSit = toNumber(byId("wallSit")?.value, formData.wallSit || 0);
+    formData.plankMax = toNumber(byId("plankMax")?.value, formData.plankMax || 0);
+    formData.mile = byId("mileTime")?.value?.trim() || formData.mile || "";
+    const durationValue = byId("longestRunDurationValue")?.value?.trim() || "";
+    const durationUnit = byId("longestRunDurationUnit")?.value || "minutes";
+    formData.runDuration = durationValue ? `${durationValue} ${durationUnit}` : "";
+    const distanceValue = byId("longestRunDistanceValue")?.value?.trim() || "";
+    const distanceUnit = byId("longestRunDistanceUnit")?.value || "miles";
+    formData.runDistance = distanceValue ? `${distanceValue} ${distanceUnit}` : "";
+    formData.startDate = byId("startDate")?.value || formData.startDate || toISODate(new Date());
+    formData = normalizeFormData(formData);
+  }
+
+  function applyDraftToInputs() {
+    if (byId("dob")) byId("dob").value = formData.dob || "";
+    if (byId("daysPerWeek")) byId("daysPerWeek").value = String(formData.daysPerWeek || 3);
+    if (byId("sessionLength")) byId("sessionLength").value = String(formData.sessionLength || 60);
+    if (byId("pushVariation")) byId("pushVariation").value = formData.pushVariation || "none";
+    if (byId("pushupMax")) byId("pushupMax").value = formData.pushupMax || "";
+    if (byId("pullVariation")) byId("pullVariation").value = formData.pullVariation || "none";
+    if (byId("pullAssistValue")) byId("pullAssistValue").value = formData.pullAssistValue || "";
+    if (byId("pullAssistUnit")) byId("pullAssistUnit").value = formData.pullAssistUnit || "lbs";
+    if (byId("pullupMax")) byId("pullupMax").value = formData.pullupMax || "";
+    if (byId("squatVariation")) byId("squatVariation").value = formData.squatVariation || "none";
+    if (byId("squatMax")) byId("squatMax").value = formData.squatMax || "";
+    if (byId("wallSit")) byId("wallSit").value = formData.wallSit || "";
+    if (byId("plankMax")) byId("plankMax").value = formData.plankMax || "";
+    if (byId("mileTime")) byId("mileTime").value = formData.mile || "";
+    if (byId("longestRunDurationValue")) byId("longestRunDurationValue").value = parseFirstNumber(formData.runDuration) || "";
+    if (byId("longestRunDurationUnit")) byId("longestRunDurationUnit").value = String(formData.runDuration || "").includes("hour") ? "hours" : "minutes";
+    if (byId("longestRunDistanceValue")) byId("longestRunDistanceValue").value = parseFirstNumber(formData.runDistance) || "";
+    if (byId("longestRunDistanceUnit")) byId("longestRunDistanceUnit").value = String(formData.runDistance || "").toLowerCase().includes("km") ? "km" : "miles";
+    if (byId("startDate")) byId("startDate").value = formData.startDate || toISODate(new Date());
+
+    qsa('[data-focus]').forEach((btn) => btn.classList.toggle("active", formData.focus.includes(btn.dataset.focus)));
+    qsa('[data-type]').forEach((btn) => btn.classList.toggle("active", formData.enduranceType.includes(btn.dataset.type)));
+    qsa('[data-equip]').forEach((btn) => btn.classList.toggle("active", formData.equipment.includes(btn.dataset.equip)));
+    qsa('[data-goal]').forEach((btn) => btn.classList.toggle("active", formData.strengthGoals.includes(btn.dataset.goal)));
+    qsa('#step-push-skill .tile-btn').forEach((btn) => btn.classList.toggle("active", formData.pushSkill.includes(btn.dataset.skill)));
+    qsa('#step-pull-skill .tile-btn').forEach((btn) => btn.classList.toggle("active", formData.pullSkill.includes(btn.dataset.skill)));
+  }
+
+  function updateAgePanels() {
+    const ageInfoContainer = byId("age-info-container");
+    const countdownMessage = byId("countdown-message");
+    const countdownTimer = byId("countdown-timer");
+    const parentDisclaimer = byId("parent-disclaimer");
+    const dobValue = byId("dob")?.value || "";
+
+    if (!dobValue) {
+      if (ageInfoContainer) ageInfoContainer.style.display = "none";
+      return;
+    }
+
+    const age = getAgeFromDob(dobValue);
+    if (age === null) {
+      if (ageInfoContainer) ageInfoContainer.style.display = "none";
+      return;
+    }
+
+    if (ageInfoContainer) ageInfoContainer.style.display = "block";
+
+    if (age < 9) {
+      if (countdownMessage) countdownMessage.style.display = "block";
+      if (parentDisclaimer) parentDisclaimer.style.display = "none";
+      const dob = new Date(`${dobValue}T12:00:00`);
+      const ninth = new Date(dob);
+      ninth.setFullYear(dob.getFullYear() + 9);
+      const diffDays = Math.max(0, Math.ceil((ninth.getTime() - Date.now()) / 86400000));
+      if (countdownTimer) countdownTimer.textContent = diffDays > 365
+        ? `${Math.floor(diffDays / 365)} years and ${diffDays % 365} days to go`
+        : `${diffDays} days to go`;
+    } else if (age < 13) {
+      if (countdownMessage) countdownMessage.style.display = "none";
+      if (parentDisclaimer) parentDisclaimer.style.display = "block";
+    } else {
+      if (ageInfoContainer) ageInfoContainer.style.display = "none";
+    }
+  }
+
+  function handleTileGroup(selector, key, limit = 99) {
+    qsa(selector).forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const value = btn.dataset.focus || btn.dataset.type || btn.dataset.equip || btn.dataset.goal || btn.dataset.skill;
+        if (!value) return;
+
+        if (limit === 1) {
+          formData[key] = [value];
+        } else {
+          const current = new Set(formData[key] || []);
+          if (current.has(value)) current.delete(value);
+          else if (current.size < limit) current.add(value);
+          formData[key] = [...current];
+        }
+
+        if (key === "focus" && !formData.focus.includes("endurance")) formData.enduranceType = [];
+        if (key === "strengthGoals") {
+          if (!formData.strengthGoals.includes("push")) formData.pushSkill = [];
+          if (!formData.strengthGoals.includes("pull")) formData.pullSkill = [];
+        }
+
+        applyDraftToInputs();
+        saveDraft();
+        renderSummaryAndPreview();
         updateStep();
+      });
     });
+  }
 
-    generateBtn.addEventListener("click", handleGenerate);
+  function validateStep() {
+    syncFromInputs();
+    const stepId = getVisibleSteps()[currentStepIndex];
 
-    // Tile Click Handlers
-    function setupTiles(selector, dataKey, limit) {
-        document.querySelectorAll(`${selector} .tile-btn`).forEach(btn => {
-            btn.addEventListener("click", () => {
-                const val = btn.dataset.focus || btn.dataset.type || btn.dataset.goal || btn.dataset.skill || btn.dataset.equip;
-                if (!val) return;
-
-                if (formData[dataKey].includes(val)) {
-                    formData[dataKey] = formData[dataKey].filter(v => v !== val);
-                    btn.classList.remove("active");
-                } else {
-                    if (formData[dataKey].length < limit) {
-                        formData[dataKey].push(val);
-                        btn.classList.add("active");
-                    }
-                }
-                // Skill goals are single select but using buttons for UI
-                if (limit === 1) {
-                    formData[dataKey] = [val];
-                    document.querySelectorAll(`${selector} .tile-btn`).forEach(b => b.classList.remove("active"));
-                    btn.classList.add("active");
-                }
-                updateSummary();
-            });
-        });
+    if (stepId === "dob") {
+      if (!formData.dob) return fail("Enter a date of birth.");
+      const age = getAgeFromDob(formData.dob);
+      if (age === null) return fail("Enter a real date of birth.");
+      if (age < 9) return fail("Training starts at age 9.");
+      if (age < 13 && !byId("parent-consent")?.checked) return fail("A parent or guardian needs to confirm supervision.");
     }
 
-    setupTiles("#step-focus", "focus", 2);
-    setupTiles("#step-endurance-type", "enduranceType", 3);
-    setupTiles(".equipment-grid", "equipment", 5);
-    setupTiles("#step-strength-goals", "strengthGoals", 3);
-    setupTiles("#step-push-skill", "pushSkill", 1);
-    setupTiles("#step-pull-skill", "pullSkill", 1);
-
-    const dobInput = document.getElementById("dob");
-    const ageInfoContainer = document.getElementById("age-info-container");
-    const countdownMessage = document.getElementById("countdown-message");
-    const countdownTimer = document.getElementById("countdown-timer");
-    const parentDisclaimer = document.getElementById("parent-disclaimer");
-
-    if (dobInput) {
-        dobInput.addEventListener("change", handleAge);
+    if (stepId === "focus" && formData.focus.length === 0) return fail("Pick at least 1 focus.");
+    if (stepId === "endurance-type" && formData.focus.includes("endurance") && formData.enduranceType.length === 0) return fail("Pick at least 1 endurance type.");
+    if (stepId === "equipment" && formData.equipment.length === 0) return fail("Pick your equipment, or choose bodyweight only.");
+    if (stepId === "strength-goals" && formData.focus.includes("strength") && formData.strengthGoals.length === 0) return fail("Pick at least 1 strength goal.");
+    if (stepId === "push-max" && formData.pushVariation !== "none" && formData.pushVariation !== "plank" && formData.pushupMax <= 0) return fail("Enter your max clean reps.");
+    if (stepId === "pull-assist" && formData.pullVariation === "assisted" && !String(formData.pullAssistValue).trim()) return fail("Enter your amount of assistance.");
+    if (stepId === "pull-max" && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation) && formData.pullupMax <= 0) return fail("Enter your max clean reps.");
+    if (stepId === "squat-max" && formData.squatVariation !== "none" && formData.squatMax <= 0) return fail("Enter your max clean reps.");
+    if (stepId === "plank" && formData.plankMax <= 0) return fail("Enter your best plank hold.");
+    if (stepId === "mile" && (formData.focus.includes("endurance") || formData.focus.includes("cardio"))) {
+      if (!formData.mile || parseTimeToSeconds(formData.mile) === null) return fail("Enter your mile time like 8:05.");
     }
+    if (stepId === "start-date" && !formData.startDate) return fail("Pick a start date.");
 
-    function handleAge() {
-        const dobValue = dobInput.value;
-        if (!dobValue) {
-            ageInfoContainer.style.display = 'none';
-            return;
-        }
+    return true;
+  }
 
-        const dob = new Date(dobValue);
-        const today = new Date();
-        
-        let age = today.getFullYear() - dob.getFullYear();
-        const m = today.getMonth() - dob.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-            age--;
-        }
+  function fail(message) {
+    setStatus(statusBox, message, "bad");
+    return false;
+  }
 
-        ageInfoContainer.style.display = 'block';
-        
-        if (age < 9) {
-            countdownMessage.style.display = 'block';
-            parentDisclaimer.style.display = 'none';
+  function updateStep() {
+    const visible = getVisibleSteps();
+    currentStepIndex = clamp(currentStepIndex, 0, visible.length - 1);
 
-            const ninthBirthday = new Date(dob);
-            ninthBirthday.setFullYear(dob.getFullYear() + 9);
-            
-            const diffTime = ninthBirthday.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays > 365) {
-                const years = Math.floor(diffDays / 365);
-                const remainingDays = diffDays % 365;
-                countdownTimer.textContent = `${years} year${years > 1 ? 's' : ''} and ${remainingDays} day${remainingDays !== 1 ? 's' : ''} to go!`;
-            } else {
-                countdownTimer.textContent = `${diffDays} day${diffDays !== 1 ? 's' : ''} to go!`;
-            }
-        } else if (age < 13) {
-            countdownMessage.style.display = 'none';
-            parentDisclaimer.style.display = 'block';
-        } else {
-            ageInfoContainer.style.display = 'none';
-        }
+    qsa(".planner-step").forEach((step) => step.classList.remove("active"));
+    const currentId = visible[currentStepIndex];
+    byId(`step-${currentId}`)?.classList.add("active");
+
+    if (progressFill) progressFill.style.width = `${((currentStepIndex + 1) / visible.length) * 100}%`;
+    backBtn?.classList.toggle("hidden", currentStepIndex === 0);
+    nextBtn?.classList.toggle("hidden", currentStepIndex === visible.length - 1);
+    generateBtn?.classList.toggle("hidden", currentStepIndex !== visible.length - 1);
+
+    if (!statusBox.classList.contains("bad")) {
+      setStatus(statusBox, "Answer the questions to build your plan.");
     }
+  }
 
-    // De-clumping/Enter-Key Logic for Elite Navigation
-    function setupEnterKey() {
-        document.querySelectorAll("input, select, textarea").forEach(el => {
-            el.removeEventListener("keydown", handlePlannerKey);
-            el.addEventListener("keydown", handlePlannerKey);
-        });
-    }
+  function renderSummaryAndPreview() {
+    syncFromInputs();
+    const age = getAgeFromDob(formData.dob);
+    const ageBand = getAgeBand(age);
+    const safety = getSafetyMode(age || 18);
 
-    function handlePlannerKey(e) {
-        if (e.key === "Enter") {
-            const tagName = e.target.tagName.toLowerCase();
-            if (tagName === "textarea") return;
-
-            e.preventDefault();
-            const visibleSteps = getVisibleSteps();
-            if (currentStepIndex === visibleSteps.length - 1) {
-                generateBtn.click();
-            } else {
-                nextBtn.click();
-            }
-        }
-    }
-
-    function validateStep() {
-        const visibleSteps = getVisibleSteps();
-        const stepId = visibleSteps[currentStepIndex];
-
-        if (stepId === "dob") {
-            formData.dob = document.getElementById("dob").value;
-            if (!formData.dob) return error("Date of birth required.");
-            
-            const dob = new Date(formData.dob);
-            const today = new Date();
-            let age = today.getFullYear() - dob.getFullYear();
-            const m = today.getMonth() - dob.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
-                age--;
-            }
-
-            if (age < 9) return error("Come back on your 9th birthday!");
-            if (age < 13) {
-                const consent = document.getElementById("parent-consent").checked;
-                if (!consent) return error("Parent/Guardian consent required.");
-            }
-        }
-        if (stepId === "focus") {
-            if (formData.focus.length === 0) return error("Pick at least 1 focus.");
-        }
-        if (stepId === "endurance-type") {
-            if (formData.focus.includes('endurance') && (!formData.enduranceType || formData.enduranceType.length === 0)) {
-                 return error("Select at least 1 endurance type.");
-            }
-        }
-        if (stepId === "equipment") {
-            if (!formData.equipment || formData.equipment.length === 0) {
-                 return error("Select equipment (or None for bodyweight).");
-            }
-        }
-        if (stepId === "days") {
-            formData.daysPerWeek = parseInt(document.getElementById("daysPerWeek").value);
-        }
-        if (stepId === "session-length") {
-            formData.sessionLength = parseInt(document.getElementById("sessionLength").value);
-        }
-        if (stepId === "push-variation") {
-            formData.pushVariation = document.getElementById("pushVariation").value;
-        }
-        if (stepId === "push-max") {
-            formData.pushupMax = parseInt(document.getElementById("pushupMax").value);
-            if (isNaN(formData.pushupMax)) return error("Enter your max reps.");
-        }
-        if (stepId === "pull-variation") {
-            formData.pullVariation = document.getElementById("pullVariation").value;
-        }
-        if (stepId === "pull-assist") {
-            formData.pullAssistValue = parseInt(document.getElementById("pullAssistValue").value);
-            formData.pullAssistUnit = document.getElementById("pullAssistUnit").value;
-        }
-        if (stepId === "pull-max") {
-            formData.pullupMax = parseInt(document.getElementById("pullupMax").value);
-            if (isNaN(formData.pullupMax)) return error("Enter your max reps.");
-        }
-        if (stepId === "squat-variation") {
-            formData.squatVariation = document.getElementById("squatVariation").value;
-        }
-        if (stepId === "squat-max") {
-            formData.squatMax = parseInt(document.getElementById("squatMax").value);
-            if (isNaN(formData.squatMax)) return error("Enter your max reps.");
-        }
-        if (stepId === "wall-sit") {
-            formData.wallSit = parseInt(document.getElementById("wallSit").value) || 0;
-        }
-        if (stepId === "plank") {
-            formData.plankMax = parseInt(document.getElementById("plankMax").value);
-            if (isNaN(formData.plankMax)) return error("Enter your plank hold.");
-        }
-        if (stepId === "mile") {
-            formData.mile = document.getElementById("mileTime").value;
-        }
-        if (stepId === "run-duration") {
-            const val = document.getElementById("longestRunDurationValue").value;
-            const unit = document.getElementById("longestRunDurationUnit").value;
-            if (val) formData.runDuration = `${val} ${unit}`;
-        }
-        if (stepId === "run-distance") {
-            const val = document.getElementById("longestRunDistanceValue").value;
-            const unit = document.getElementById("longestRunDistanceUnit").value;
-            if (val) formData.runDistance = `${val} ${unit}`;
-        }
-        if (stepId === "start-date") {
-            formData.startDate = document.getElementById("startDate").value;
-            if (!formData.startDate) return error("Start date required.");
-        }
-
-        return true;
-    }
-
-    function error(msg) {
-        // Invisible Operator Protocol: Hide technical details
-        let cleanMsg = "Adjusting your Mastery Track... Please refresh.";
-        
-        const lowerMsg = msg.toLowerCase();
-        if (lowerMsg.includes("date of birth")) cleanMsg = "Tell the coach your age to personalize the intensity.";
-        if (lowerMsg.includes("9th birthday")) cleanMsg = "Training begins at age 9. Your time will come soon!";
-        if (lowerMsg.includes("parent/guardian consent")) cleanMsg = "Safety first! Please have a parent review the disclaimer.";
-        if (lowerMsg.includes("pick at least 1 focus")) cleanMsg = "Select a primary focus to tailor your level-up path.";
-        if (lowerMsg.includes("enter your max reps")) cleanMsg = "A quick rep count helps calibrate your mastery level.";
-        if (lowerMsg.includes("start date")) cleanMsg = "Set your start date to lock in your 4-week journey.";
-        if (lowerMsg.includes("password")) cleanMsg = "Mastery requires the right keys. Try your password again.";
-        
-        statusBox.textContent = cleanMsg;
-        statusBox.className = "status-box bad";
-
-        // Clutter Control: Auto-fade error after 3 seconds
-        setTimeout(() => {
-            if (statusBox.className.includes("bad")) {
-                statusBox.textContent = "Answer the questions to build your plan.";
-                statusBox.className = "status-box";
-            }
-        }, 3000);
-
-        return false;
-    }
-
-    function updateSummary() {
-        const preview = document.getElementById("planSummaryPreview");
-        let html = `<div class="summary-list">`;
-        
-        let age = 30;
-        if (formData.dob) {
-            const birth = new Date(formData.dob);
-            if (!isNaN(birth.getTime())) {
-                const now = new Date();
-                age = now.getFullYear() - birth.getFullYear();
-            }
-        }
-        
-        let ageBandLabel = '';
-        if (age >= 9 && age <= 12) ageBandLabel = 'Youth Beginner';
-        else if (age >= 13 && age <= 15) ageBandLabel = 'Youth Intermediate';
-        else if (age >= 16 && age <= 17) ageBandLabel = 'Youth Advanced';
-        else ageBandLabel = 'Adult Standard';
-
-        if (formData.focus.length > 0) {
-            html += `<div class="summary-item"><div class="summary-label">Focus</div><div class="summary-value">${formData.focus.join(", ")}</div></div>`;
-            html += `<div class="summary-item"><div class="summary-label">Age Band</div><div class="summary-value">${ageBandLabel}</div></div>`;
-            html += `<div class="summary-item"><div class="summary-label">Safety Mode</div><div class="summary-value">Enabled</div></div>`;
-        }
-        if (formData.strengthGoals.length > 0) {
-            html += `<div class="summary-item"><div class="summary-label">Strength Goals</div><div class="summary-value">${formData.strengthGoals.join(", ")}</div></div>`;
-        }
-        if (formData.pushVariation && formData.pushVariation !== "none") {
-            const variName = getProgressionConfig('push', formData.pushVariation, formData.pushupMax || 0, 0);
-            html += `<div class="summary-item"><div class="summary-label">Hardest Push</div><div class="summary-value">${variName}</div></div>`;
-        }
-        if (formData.pullVariation && formData.pullVariation !== "none") {
-            const variName = getProgressionConfig('pull', formData.pullVariation, formData.pullupMax || 0, 0);
-            html += `<div class="summary-item"><div class="summary-label">Hardest Pull</div><div class="summary-value">${variName}</div></div>`;
-        }
-        if (formData.squatVariation && formData.squatVariation !== "none") {
-            const variName = getProgressionConfig('squat', formData.squatVariation, formData.squatMax || 0, 0);
-            html += `<div class="summary-item"><div class="summary-label">Hardest Squat</div><div class="summary-value">${variName}</div></div>`;
-        }
-        
-        html += `</div>`;
-        preview.innerHTML = formData.focus.length === 0 ? "Select your focus to see details." : html;
-        
-        // "Unlock" Animation: Pulse effect on items
-        const items = preview.querySelectorAll(".summary-item");
-        items.forEach(item => {
-            item.classList.add("pulse");
-            setTimeout(() => item.classList.remove("pulse"), 400);
-        });
-        
-        renderWeekPreview();
-    }
-
-    function renderWeekPreview() {
-        const container = document.getElementById("schedulePreview");
-        const plan = generateScientificPlan();
-        if (!plan || plan.length === 0) {
-            container.innerHTML = `<div class="empty-box">Preview will appear as you answer questions.</div>`;
-            return;
-        }
-
-        const week1 = plan[0];
-        let html = `
-            <div class="preview-week">
-                <div class="preview-week-title">Week 1 Preview</div>
-                <div class="preview-workout-list">
-        `;
-
-        week1.workouts.forEach(w => {
-            html += `
-                <div class="preview-workout">
-                    <div class="preview-workout-top">
-                        <div class="preview-workout-name">${w.name}</div>
-                        <span class="preview-badge">${w.duration} min</span>
-                    </div>
-                    <div class="preview-workout-sub">${w.description}</div>
-                </div>
-            `;
-        });
-
-        html += `</div></div>`;
-        container.innerHTML = html;
-    }
-
-    const pushProgressions = [
-        { value: "none", name: "Cannot do one yet" },
-        { value: "plank", name: "Plank (Floor)" },
-        { value: "scapula", name: "Scapula Push-ups" },
-        { value: "wall", name: "Wall Push-ups" },
-        { value: "incline", name: "Incline Push-ups" },
-        { value: "knee", name: "Knee Push-ups" },
-        { value: "negatives", name: "Negative Push-ups" },
-        { value: "regular", name: "Regular Push-ups" },
-        { value: "wide", name: "Wide Push-ups" },
-        { value: "diamond", name: "Diamond Push-ups" },
-        { value: "tricep", name: "Tricep Extensions" },
-        { value: "exploding", name: "Power Push-ups" },
-        { value: "archer", name: "Archer Push-ups" },
-        { value: "one-arm-archer", name: "One-Arm Archer Push-ups" },
-        { value: "pike", name: "Pike Push-ups" }
+    const summaryItems = [
+      { label: "Focus", value: formData.focus.length ? formData.focus.map(titleCase).join(", ") : "Not set yet" },
+      { label: "Age Band", value: ageBand },
+      { label: "Safety", value: safety },
+      { label: "Equipment", value: formData.equipment.length ? formData.equipment.map(titleCase).join(", ") : "Not set yet" },
+      { label: "Workout Length", value: formData.sessionLength ? `${formData.sessionLength} minutes` : "Not set yet" }
     ];
 
-    const pullProgressions = [
-        { value: "none", name: "Cannot do one yet" },
-        { value: "dead-hang", name: "Dead Hang" },
-        { value: "scapula", name: "Scapular Pull-ups" },
-        { value: "active-hang", name: "Active Hang" },
-        { value: "negatives", name: "Negative Pull-ups" },
-        { value: "assisted", name: "Band-Assisted Pull-ups" },
-        { value: "regular", name: "Regular Pull-ups" },
-        { value: "wide", name: "Wide Pull-ups" },
-        { value: "archer", name: "Archer Pull-ups" },
-        { value: "weighted", name: "Weighted Pull-ups" }
-    ];
+    if (formData.enduranceType.length) summaryItems.push({ label: "Endurance", value: formData.enduranceType.map(titleCase).join(", ") });
+    if (formData.strengthGoals.length) summaryItems.push({ label: "Strength Goals", value: formData.strengthGoals.map(titleCase).join(", ") });
+    if (formData.pushVariation) summaryItems.push({ label: "Push Base", value: findVariation(PUSH_VARIATIONS, formData.pushVariation).name });
+    if (formData.pullVariation) summaryItems.push({ label: "Pull Base", value: findVariation(PULL_VARIATIONS, formData.pullVariation).name });
+    if (formData.squatVariation) summaryItems.push({ label: "Squat Base", value: findVariation(SQUAT_VARIATIONS, formData.squatVariation).name });
 
-    const squatProgressions = [
-        { value: "none", name: "Cannot do one yet" },
-        { value: "assisted", name: "Assisted Squats" },
-        { value: "box", name: "Box Squats" },
-        { value: "regular", name: "Regular Bodyweight Squats" },
-        { value: "split", name: "Split Squats / Lunges" },
-        { value: "bulgarian", name: "Bulgarian Split Squats" },
-        { value: "pistol-assisted", name: "Assisted Pistol Squats" },
-        { value: "pistol", name: "Pistol Squats" }
-    ];
+    planSummaryPreview.innerHTML = `<div class="summary-list">${
+      summaryItems.map((item) => `
+        <div class="summary-item">
+          <div class="summary-label">${item.label}</div>
+          <div class="summary-value">${safeText(item.value)}</div>
+        </div>
+      `).join("")
+    }</div>`;
 
-    function getProgressionConfig(type, baseValue, maxReps, weekOffset = 0) {
-        const list = type === 'push' ? pushProgressions : type === 'pull' ? pullProgressions : squatProgressions;
-        let idx = list.findIndex(x => x.value === baseValue);
-        if (idx === -1) {
-            // Try to find by name if value doesn't match
-            idx = list.findIndex(x => x.name.toLowerCase().includes(baseValue.toLowerCase()));
-        }
-        if (idx === -1) idx = 1; 
-        
-        // SAFETY & HYPERTROPHY LOGIC
-        // If max reps of chosen variation < 8, move back 1-2 levels to ensure user can perform 
-        // the required volume (8-15 reps) for true hypertrophy and safety.
-        if (maxReps < 4) {
-            idx = Math.max(1, idx - 2);
-        } else if (maxReps < 8) {
-            idx = Math.max(1, idx - 1);
-        }
-
-        idx = Math.min(idx + weekOffset, list.length - 1);
-        return list[idx] ? list[idx].name : "Regular Exercise";
+    if (!formData.focus.length) {
+      weekPreview.innerHTML = `<div class="empty-box">Preview will appear as you answer questions.</div>`;
+      return;
     }
 
-    function generateScientificPlan() {
-        if (formData.focus.length === 0) return null;
+    const plan = buildPlan(formData);
+    const week1 = plan.weeks[0];
+    weekPreview.innerHTML = `
+      <div class="preview-week">
+        <div class="preview-week-title">Week 1 Preview</div>
+        <div class="preview-workout-list">
+          ${week1.workouts.map((workout) => `
+            <div class="preview-workout">
+              <div class="preview-workout-top">
+                <div class="preview-workout-name">${safeText(workout.workoutLabel)} • ${safeText(workout.name)}</div>
+                <span class="preview-badge ${workout.isDeload ? "warn" : ""}">${safeText(workout.duration)} min</span>
+              </div>
+              <div class="preview-workout-sub">${safeText(workout.description)}</div>
+              <div class="preview-workout-sub">${workout.exercises.slice(0, 3).map((exercise) => exercise.name).join(" • ")}</div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
 
-        const weeks = [];
-        const sessionNames = {
-            'Day A': { id: 'Day A', name: "The Push Path", goals: ["push"], goalDesc: "Chest, Shoulders & Triceps." },
-            'Day B': { id: 'Day B', name: "The Pull Path", goals: ["pull"], goalDesc: "Back, Biceps & Core." },
-            'Day C': { id: 'Day C', name: "The Leg Path", goals: ["squat"], goalDesc: "Quads, Glutes & Core." },
-            'Day D': { id: 'Day D', name: "The Engine", goals: ["endurance"], goalDesc: "Steady Pace, Nose Breathing." },
-            'Day E': { id: 'Day E', name: "Endurance Variation", goals: ["endurance"], goalDesc: "Intervals or Cross-training." },
-            'Day F': { id: 'Day F', name: "Active Recovery", goals: ["mastery"], goalDesc: "Full body mobility and light movement." }
-        };
+  function generate() {
+    if (!validateStep()) return;
+    syncFromInputs();
+    const plan = buildPlan(formData);
+    saveCurrentPlan(plan);
+    saveDraft();
+    setStatus(statusBox, "Plan generated and saved.", "ok");
+    renderSummaryAndPreview();
+  }
 
-        // Determine age and programming parameters
-        let age = 30;
-        if (formData.dob) {
-            const birth = new Date(formData.dob);
-            if (!isNaN(birth.getTime())) {
-                const now = new Date();
-                age = now.getFullYear() - birth.getFullYear();
-            }
+  qsa("input, select").forEach((input) => {
+    input.addEventListener("change", () => {
+      syncFromInputs();
+      updateAgePanels();
+      saveDraft();
+      renderSummaryAndPreview();
+    });
+    input.addEventListener("input", () => {
+      syncFromInputs();
+      saveDraft();
+      renderSummaryAndPreview();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.tagName.toLowerCase() !== "textarea") {
+        event.preventDefault();
+        if (currentStepIndex === getVisibleSteps().length - 1) generate();
+        else if (validateStep()) {
+          currentStepIndex += 1;
+          updateStep();
         }
+      }
+    });
+  });
 
-        let ageBand = 'adult_standard';
-        let ageMaxSets = 4;
-        let baseRest = 90; // compounds 75-120s, accessories 45-75s
-        let ageRepCap = 15; // default max reps
+  handleTileGroup('#step-focus .tile-btn', "focus", 2);
+  handleTileGroup('#step-endurance-type .tile-btn', "enduranceType", 3);
+  handleTileGroup('#step-equipment .tile-btn', "equipment", 5);
+  handleTileGroup('#step-strength-goals .tile-btn', "strengthGoals", 3);
+  handleTileGroup('#step-push-skill .tile-btn', "pushSkill", 1);
+  handleTileGroup('#step-pull-skill .tile-btn', "pullSkill", 1);
 
-        if (age >= 9 && age <= 12) {
-            ageBand = 'youth_beginner';
-            ageMaxSets = 2; // Keep working sets 1-3
-            baseRest = 120;
-        } else if (age >= 13 && age <= 15) {
-            ageBand = 'youth_intermediate';
-            ageMaxSets = 3; // 2-4 working sets
-            baseRest = 90;
-        } else if (age >= 16 && age <= 17) {
-            ageBand = 'youth_advanced_youth';
-            ageMaxSets = 4; // 2-4 working sets
-            baseRest = 90;
-        } else {
-            ageBand = 'adult_standard';
-            ageMaxSets = 4; // Adults tolerate more
-            if (age >= 50) baseRest = 120;
-        }
+  byId("dob")?.addEventListener("change", updateAgePanels);
 
-        let allowedDays = [];
-        const hasEndurance = formData.focus.includes("endurance") || formData.focus.includes("cardio");
-        const hasStrength = formData.focus.includes("strength");
-        const hasFlexibility = formData.focus.includes("flexibility");
-
-        // Pool all requested session types
-        const strengthPool = [];
-        if (formData.strengthGoals.includes("push") || hasStrength) strengthPool.push('Day A');
-        if (formData.strengthGoals.includes("pull") || hasStrength) strengthPool.push('Day B');
-        if (formData.strengthGoals.includes("squat") || hasStrength) strengthPool.push('Day C');
-        
-        const endurancePool = [];
-        if (formData.enduranceType && formData.enduranceType.length > 0) {
-            formData.enduranceType.forEach(type => {
-                endurancePool.push({ id: 'Day D', subType: type });
-            });
-            // Ensure at least 2 days if they only picked 1 type
-            if (endurancePool.length === 1) {
-                endurancePool.push({ id: 'Day E', subType: `${formData.enduranceType[0]} (Intervals)` });
-            } else {
-                // If they picked multiple, just make the 2nd one Day E
-                endurancePool[1].id = 'Day E';
-            }
-        } else if (hasEndurance) {
-            endurancePool.push({ id: 'Day D', subType: 'Running' });
-            endurancePool.push({ id: 'Day E', subType: 'Running (Intervals)' });
-        }
-
-        const recoveryPool = ['Day F'];
-
-        // Combine into a master cycle
-        const masterCycle = [...strengthPool, ...endurancePool, ...recoveryPool];
-        const daysPerWeek = formData.daysPerWeek || 3;
-
-        for (let w = 1; w <= 4; w++) {
-            const isDeload = (w === 4);
-            const isHighVolume = (w === 3);
-            const workouts = [];
-
-            // Calculate progression offset based on age
-            // Young: +1 per week. Middle: +1 every 2 weeks. Older: +0.5 (rounded)
-            let hypertrophyLevel = w - 1; 
-            if (age >= 50) hypertrophyLevel = Math.floor((w - 1) * 0.3);
-            else if (age >= 35) hypertrophyLevel = Math.floor((w - 1) * 0.6);
-
-            // Determine which items from masterCycle belong to this week
-            // If masterCycle is longer than daysPerWeek, we rotate
-            const weekStartIndex = ((w - 1) * daysPerWeek) % masterCycle.length;
-            
-            for (let d = 0; d < daysPerWeek; d++) {
-                const cycleItem = masterCycle[(weekStartIndex + d) % masterCycle.length];
-                const sessionKey = typeof cycleItem === 'string' ? cycleItem : cycleItem.id;
-                const session = { ...sessionNames[sessionKey] };
-                
-                if (typeof cycleItem === 'object' && cycleItem.subType) {
-                    session.subType = cycleItem.subType;
-                    session.name = `${cycleItem.subType.charAt(0).toUpperCase() + cycleItem.subType.slice(1)}`;
-                }
-                
-                const workout = {
-                    day: `Workout ${d + 1}`,
-                    name: `${session.name}`,
-                    duration: formData.sessionLength || 60,
-                    description: session.goalDesc,
-                    exercises: []
-                };
-
-                const eliteTempo = (ageBand === 'youth_beginner' || ageBand === 'youth_intermediate') ? "Smooth and controlled" : "2 sec down, 1s pause, explode up";
-                const primerTempo = "Controlled, light movement";
-                const repsInReserve = "Stop with 1-3 reps in reserve.";
-
-                if (session.id === 'Day A') {
-                    // THE PRIMER (Warmup includes mobility)
-                    workout.exercises.push({ type: 'primer', name: "Arm Circles & Shoulder Rolls", sets: "2", reps: "10", note: "Forward and backward circles.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    workout.exercises.push({ type: 'primer', name: "Wrist Rotations", sets: "2", reps: "10", note: "Roll wrists to prep joints.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
-                    
-                    // THE MASTERY MOVE
-                    let baseVar = formData.pushVariation || "knee";
-                    let maxReps = formData.pushupMax || 0;
-                    // Progression every rotation if age fits
-                    let weekOffset = (isDeload) ? 1 : 0; 
-                    let exerciseName = getProgressionConfig('push', baseVar, maxReps, weekOffset);
-                    
-                    let repsVal = "8-12";
-                    let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `True Hypertrophy Zone. ${repsInReserve} Stay controlled.`;
-                    let lMode = (baseVar === 'negatives' || exerciseName.toLowerCase().includes('negative')) ? 'assistance' : 'normal';
-
-                    // Adjust targets to reinforce hypertrophy (8-15 reps)
-                    // If maxReps were used to downgrade movement, we now target higher reps
-                    if (maxReps < 8) {
-                        repsVal = "8-10";
-                    } else if (maxReps <= 15) {
-                        repsVal = `${Math.min(15, Math.max(8, maxReps))}`;
-                    } else {
-                        repsVal = "12-15";
-                    }
-
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
-
-                    // THE BUILDER: Skill-oriented Push exercises only
-                    let builder1 = { name: "Incline Push-ups (Hands Elevated)", note: "Triceps and chest focus.", loadMode: "normal" };
-                    let builder2 = { name: "Tricep Dips (Off a Chair)", note: "Tricep Isolation.", loadMode: "normal" };
-                    
-                    const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
-                    
-                    const isBeginner = (maxReps < 8);
-                    
-                    if (formData.pushSkill && formData.pushSkill.includes('hspu')) {
-                        if (isBeginner) {
-                            builder1 = { name: "Downward Dog Holds or Pike Holds", note: "Shoulder stability for vertical push.", loadMode: "normal" };
-                        } else {
-                            builder1 = { name: hasWeights ? "Dumbbell Overhead Press or Pike Push-ups" : "Pike Push-ups", note: "Shoulder strength for vertical push.", loadMode: hasWeights ? "added load" : "normal" };
-                        }
-                        builder2 = { name: "Plank Hold", note: "Build core and shoulder stability.", loadMode: "normal" };
-                    } else if (formData.pushSkill && formData.pushSkill.includes('one-arm')) {
-                        builder1 = { name: isBeginner ? "Wide Push-ups or Knee Archer Push-ups" : "Archer Push-ups or Wide Push-ups", note: "Unilateral strength focus.", loadMode: "normal" };
-                        builder2 = { name: "Plank Shoulder Taps", note: "Anti-rotation core hold.", loadMode: "normal" };
-                    }
-
-                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: builder1.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
-                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: builder2.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
-
-                } else if (session.id === 'Day B') {
-                    workout.exercises.push({ type: 'primer', name: "Shoulder Shrugs & Rolls", sets: "2", reps: "10", note: "Wake up the upper back.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    
-                    const hasBar = formData.equipment && formData.equipment.includes("pullup-bar");
-                    const hasBands = formData.equipment && formData.equipment.includes("bands");
-                    const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
-                    
-                    if (hasBar) {
-                         workout.exercises.push({ type: 'primer', name: "Dead Hang or Scapula Pulls", sets: "2", reps: "10s", note: "Prep the grip.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
-                    } else {
-                         workout.exercises.push({ type: 'primer', name: "Prone Y-T-W Raises (Floor)", sets: "2", reps: "10", note: "Prep the mid back.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
-                    }
-                    
-                    let baseVar = formData.pullVariation || "none";
-                    let maxReps = formData.pullupMax || 0;
-                    let weekOffset = (isDeload) ? 1 : 0;
-                    let exerciseName = getProgressionConfig('pull', baseVar, maxReps, weekOffset);
-                    
-                    if (!hasBar) {
-                        if (hasWeights) {
-                            exerciseName = "Bent Over Dumbbell Rows";
-                        } else if (hasBands) {
-                            exerciseName = "Band Lat Pulldowns or Band Rows";
-                        } else {
-                            exerciseName = "Table/Australian Rows or Sliding Floor Pull-ups";
-                        }
-                    }
-                    
-                    let repsVal = "8-12";
-                    let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `True Hypertrophy Zone. ${repsInReserve} Controlled drive.`;
-                    let lMode = (baseVar === 'assisted' || baseVar === 'negatives' || exerciseName.toLowerCase().includes('negative')) ? 'assistance' : 'normal';
-                    
-                    if (!hasBar && hasWeights) lMode = "added load";
-
-                    if (maxReps < 8) {
-                        repsVal = "8-10";
-                    } else if (maxReps <= 15) { 
-                        repsVal = `${Math.min(15, Math.max(8, maxReps))}`; 
-                    } else { 
-                        repsVal = "12-15"; 
-                    }
-
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : (lMode === 'added load' ? "Select target weight" : "Bodyweight") });
-
-                    let builder1 = { name: "Negative/Eccentric Pull-ups or Rows", note: "Back Builder. Jump up and lower slowly.", loadMode: "normal" };
-                    let builder2 = { name: "Bicep Curls", note: "Bicep Builder.", loadMode: hasWeights ? "added load" : (hasBands ? "added load" : "normal") };
-                    
-                    if (!hasBar) {
-                         builder1 = { name: "Superman Holds or Bodyweight Reverse Flyes", note: "Upper back strength.", loadMode: "normal" };
-                    }
-                    
-                    if (formData.pullSkill && formData.pullSkill.includes('muscle-up') && hasBar) {
-                        builder1 = { name: "Band-Assisted Pull-ups (Smooth)", note: "Train the pulling strength for the transition.", loadMode: "assistance" };
-                        builder2 = { name: "Tricep Dips (Bars or Chair)", note: "The top half of the movement.", loadMode: "normal" };
-                    } else if (formData.pullSkill && formData.pullSkill.includes('one-arm-pull') && hasBar) {
-                        builder1 = { name: "Uneven Pull-ups (One hand on towel)", note: "Unilateral vertical pull.", loadMode: "normal" };
-                        builder2 = { name: "Active Hangs", note: "Lock off strength.", loadMode: "normal" };
-                    }
-
-                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: builder1.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
-                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: builder2.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
-
-                } else if (session.id === 'Day C') {
-                    workout.exercises.push({ type: 'primer', name: "Deep Squat Hold (Use support if needed)", sets: "2", reps: "15s", note: "Sit deep, breathe easy.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    workout.exercises.push({ type: 'primer', name: "Bodyweight Glute Bridges", sets: "2", reps: "10", note: "Squeeze glutes at top.", rest: `${baseRest / 2}s`, tempo: primerTempo, loadMode: "normal" });
-                    
-                    let baseVar = formData.squatVariation || "regular";
-                    let maxReps = formData.squatMax || 0;
-                    let weekOffset = (isDeload) ? 1 : 0;
-                    let exerciseName = getProgressionConfig('squat', baseVar, maxReps, weekOffset);
-                    
-                    let repsVal = "8-15";
-                    let setsVal = isHighVolume ? ageMaxSets : (isDeload ? 2 : Math.min(3, ageMaxSets));
-                    let noteStr = `True Hypertrophy Zone. ${repsInReserve} Full depth control.`;
-                    let lMode = (baseVar === 'assisted' || baseVar === 'pistol-assisted' || exerciseName.toLowerCase().includes('assisted')) ? 'assistance' : 'normal';
-                    
-                    if (maxReps < 8) {
-                        repsVal = "10-12";
-                    } else if (maxReps <= 15) {
-                        repsVal = `${Math.min(15, Math.max(8, maxReps))}`;
-                    } else {
-                        repsVal = "12-15";
-                    }
-
-                    workout.exercises.push({ type: 'mastery', name: exerciseName, sets: setsVal, reps: repsVal, note: noteStr, rest: "60-90s", tempo: eliteTempo, loadMode: lMode, goalLoad: lMode === 'assistance' ? "Use clean assistance" : "Bodyweight" });
-
-                    const hasWeights = formData.equipment && formData.equipment.includes("dumbbells");
-                    let builder1 = { name: "Box Step-Ups or Lunges", note: "Unilateral leg strength.", loadMode: hasWeights ? "added load" : "normal" };
-                    let builder2 = { name: "Calf Raises (Off a step)", note: "Calf isolation.", loadMode: hasWeights ? "added load" : "normal" };
-
-                    workout.exercises.push({ type: 'builder', name: builder1.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder1.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder1.loadMode, goalLoad: builder1.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
-                    workout.exercises.push({ type: 'builder', name: builder2.name, sets: Math.min(3, ageMaxSets), reps: `8-12`, note: builder2.note + " " + repsInReserve, rest: `${Math.max(45, baseRest - 30)}s`, tempo: eliteTempo, loadMode: builder2.loadMode, goalLoad: builder2.loadMode === "added load" ? "Select target weight" : "Bodyweight" });
-
-                } else if (session.id === 'Day D' || session.id === 'Day E') {
-                    const eType = session.subType || "Running";
-                    const isIntervals = session.id === 'Day E';
-                    
-                    workout.exercises.push({ type: 'primer', name: "Dynamic Leg Swings", sets: "1", reps: "10 per leg", note: "Forward/after and side-to-side.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    workout.exercises.push({ type: 'primer', name: "High Knees in Place", sets: "1", reps: "30s", note: "Light and bouncy to prep for engine work.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-
-                    workout.exercises.push({ 
-                        type: 'mastery',
-                        name: isIntervals ? `Intervals: ${eType.charAt(0).toUpperCase() + eType.slice(1)}` : `The Engine: ${eType.charAt(0).toUpperCase() + eType.slice(1)}`, 
-                        sets: isIntervals ? "4" : "1", 
-                        reps: isIntervals ? "3 min" : (isHighVolume ? "60 min" : "40 min"), 
-                        note: isIntervals ? "Hard effort for 3 minutes, active recovery for 2." : "Steady Pace, Nose Breathing. Easy Pace.", 
-                        rest: isIntervals ? "2 min" : "Cooldown",
-                        tempo: isIntervals ? "Fast / Vigorous" : "Steady State",
-                        loadMode: "normal",
-                        goalLoad: "N/A"
-                    });
-                } else if (session.id === 'Day F') {
-                    workout.exercises.push({ type: 'primer', name: "Cat-Cow Stretch", sets: "1", reps: "10", note: "Flow with your breath. Spine mobility.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    workout.exercises.push({ type: 'primer', name: "Hip Flexor Kneeling Stretch", sets: "1", reps: "60s per leg", note: "Tuck pelvis under gently.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                    workout.exercises.push({ type: 'primer', name: "Child's Pose", sets: "1", reps: "2 min", note: "Relax and focus on deep breathing.", rest: "None", tempo: primerTempo, loadMode: "normal" });
-                }
-
-                // Add Cooldown properly
-                workout.exercises.push({
-                    type: 'cooldown',
-                    name: "Light Walk & Specific Stretching",
-                    note: "Walk for 2 minutes to bring heart rate down. Then perform static stretches: standing quad stretch (30s/leg), toe touch/hamstring stretch (60s), and chest stretch against a doorway (30s).",
-                    tempo: "Natural Flow",
-                    sets: "1",
-                    reps: "5-10 min",
-                    rest: "None",
-                    loadMode: "normal",
-                    goalLoad: "N/A"
-                });
-
-                workout.exercises.forEach((ex, idx) => {
-                    ex.id = `ex_${idx}`;
-                    let setsDetails = [];
-                    let numSets = parseInt(ex.sets, 10) || 1;
-                    const baseRepsStr = ex.reps || "10";
-                    const isTime = typeof baseRepsStr === "string" && (baseRepsStr.match(/^\d+\s*(s|min)$/)); 
-                    let baseRepNum = parseInt(baseRepsStr, 10) || baseRepsStr;
-                    const isHypertrophyMove = ex.type === 'mastery' || ex.type === 'builder';
-                    
-                    let currentRestStr = ex.rest || "60s";
-
-                    if (isHypertrophyMove) {
-                        // PROGRESSION STEP 1: Increase reps or hold time
-                        if (hypertrophyLevel >= 1) {
-                            if (typeof baseRepNum === "number") baseRepNum += 1;
-                            else if (isTime && baseRepsStr.includes("s")) baseRepNum += 5;
-                        }
-                        // PROGRESSION STEP 2: Decrease rest
-                        if (hypertrophyLevel >= 2) {
-                            if (currentRestStr.includes("s") && !currentRestStr.includes("min")) {
-                                let restSecs = parseInt(currentRestStr, 10);
-                                if (restSecs > 30) currentRestStr = `${restSecs - 15}s`;
-                            }
-                        }
-                        // PROGRESSION STEP 3: Add set (max 1 more)
-                        if (hypertrophyLevel >= 3) {
-                            numSets = Math.min(numSets + 1, ageMaxSets);
-                        }
-                        // Week 4 Deload Adjustment
-                        if (isDeload) {
-                             if (typeof baseRepNum === "number") baseRepNum = Math.max(1, Math.floor(baseRepNum * 0.7));
-                             numSets = 2; // Fixed deload sets
-                        }
-                    }
-
-                    for(let s=0; s < numSets; s++) {
-                        let currentTarget = baseRepsStr;
-
-                        if (isHypertrophyMove && !isTime && typeof baseRepNum === "number") {
-                            currentTarget = baseRepNum.toString();
-                        } else if (isHypertrophyMove && isTime && baseRepsStr.includes("s")) {
-                            currentTarget = `${baseRepNum}s`;
-                        }
-
-                        setsDetails.push({ setNumber: s + 1, targetReps: currentTarget, rest: currentRestStr });
-                    }
-                    ex.setDetails = setsDetails;
-                });
-
-                workouts.push(workout);
-            }
-            weeks.push({ week: w, workouts });
-        }
-        return weeks;
-    }
-
-    async function handleGenerate() {
-        generateBtn.disabled = true;
-        statusBox.textContent = "Crafting your personalized 4-week plan...";
-        
-        const fullPlan = generateScientificPlan();
-        
-        const planToSave = {
-            formData: formData,
-            weeks: fullPlan,
-            createdAt: new Date().toISOString(),
-            activeDay: 'Workout 1' // Default to first workout of week
-        };
-        
-        saveLocalPlan(planToSave);
-        
-        setTimeout(() => {
-            window.location.href = "./dashboard.html";
-        }, 1500);
-    }
-
+  nextBtn?.addEventListener("click", () => {
+    if (!validateStep()) return;
+    currentStepIndex += 1;
     updateStep();
+  });
+
+  backBtn?.addEventListener("click", () => {
+    currentStepIndex -= 1;
+    updateStep();
+  });
+
+  generateBtn?.addEventListener("click", generate);
+
+  if (!formData.startDate) formData.startDate = toISODate(new Date());
+  applyDraftToInputs();
+  updateAgePanels();
+  updateStep();
+  renderSummaryAndPreview();
 }
 
-/**
- * DASHBOARD
- */
-async function initDashboard() {
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-        logoutBtn.addEventListener("click", () => {
-            localStorage.removeItem("fitnessplan_token");
-            localStorage.removeItem("fitnessplan_user");
-            window.location.href = "./account-test.html";
-        });
-    }
-
-    await loadDashboardData();
+function getWorkoutHistoryPoint(plan, tracker, predicate, parser) {
+  const points = [];
+  plan.weeks.forEach((week) => {
+    week.workouts.forEach((workout) => {
+      workout.exercises.forEach((exercise) => {
+        if (!predicate(exercise)) return;
+        const entry = tracker.days?.[workout.date]?.[exercise.id];
+        const value = parser(entry);
+        if (value === null || value === undefined || value === "") return;
+        points.push({ date: workout.date, value, exerciseName: exercise.name });
+      });
+    });
+  });
+  return points;
 }
 
-function calculateStreak(logs) {
-    if (!logs || !logs.readiness || Object.keys(logs.readiness).length === 0) return 0;
-    const dates = Object.keys(logs.readiness)
-        .map(k => k.split("_")[0]) // extract date string
-        .map(ds => new Date(ds))
-        .filter(d => !isNaN(d.getTime()))
-        .sort((a,b) => b.getTime() - a.getTime());
-    
-    if (dates.length === 0) return 0;
-    
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    let streak = 0;
-    
-    // Check if the most recent workout was today or yesterday
-    const diffDays = Math.floor((today - dates[0]) / (1000 * 60 * 60 * 24));
-    if (diffDays > 1) return 0; // Streak broken
-    
-    streak = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const diff = Math.floor((dates[i-1] - dates[i]) / (1000 * 60 * 60 * 24));
-        if (diff === 1) {
-            streak++;
-        } else if (diff > 1) {
-            break;
-        }
-    }
-    return streak;
+function detectPlateau(points, better = "higher") {
+  if (points.length < 4) return false;
+  const last3 = points.slice(-3);
+  const earlier = points.slice(0, -3);
+  if (!earlier.length) return false;
+  if (better === "lower") {
+    const bestEarlier = Math.min(...earlier.map((p) => p.value));
+    return last3.every((p) => p.value >= bestEarlier);
+  }
+  const bestEarlier = Math.max(...earlier.map((p) => p.value));
+  return last3.every((p) => p.value <= bestEarlier);
 }
 
-async function loadDashboardData() {
-    // Local static data loading
-    const plan = getLocalPlan();
-    const user = getUser();
-    const logs = JSON.parse(localStorage.getItem('fitnessplan_logs')) || { readiness: {}, reps: {} };
-    
-    const data = {
-        ok: true,
-        user: user,
-        plan: plan,
-        streak: calculateStreak(logs),
-        logs: logs
-    };
+function getReadinessSummary(dayData) {
+  const readiness = dayData?._readiness;
+  if (!readiness) return null;
+  const sleep = toNumber(readiness.sleepHours, 0);
+  const soreness = clamp(toNumber(readiness.soreness, 3), 1, 5);
+  const energy = clamp(toNumber(readiness.energy, 3), 1, 5);
 
-    renderDashboard(data);
+  let score = 0;
+  if (sleep >= 8) score += 2;
+  else if (sleep >= 7) score += 1;
+  else if (sleep <= 5) score -= 2;
+  else if (sleep <= 6) score -= 1;
+
+  score += (energy - 3);
+  score -= (soreness - 3);
+
+  if (score <= -2) return { level: "low", label: "Low readiness", note: "Volume will be reduced and accessories cut first." };
+  if (score >= 2) return { level: "high", label: "High readiness", note: "Run the planned session, but do not add surprise work." };
+  return { level: "normal", label: "Normal readiness", note: "Run the planned session." };
 }
 
-function renderDashboard(data) {
-    const streakEl = document.getElementById("currentStreakNumber");
-    if (streakEl) streakEl.textContent = data.streak || 0;
-
-    const profileBox = document.getElementById("profileBox");
-    if (profileBox && data.user) {
-        let startDateStr = "Not Started";
-        if (data.plan && data.plan.formData && data.plan.formData.startDate) {
-            const d = new Date(data.plan.formData.startDate);
-            if (!isNaN(d.getTime())) {
-                startDateStr = d.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                });
-            }
-        }
-        
-        profileBox.innerHTML = `
-            <div class="info-card">
-                <div class="info-label">User</div>
-                <div class="info-value">${data.user.username}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">Started</div>
-                <div class="info-value date-display">${startDateStr}</div>
-            </div>
-        `;
-    }
-
-    const todayBox = document.getElementById("todayBox");
-    const dayPickerContainer = document.getElementById("dayPickerContainer");
-    const weekTrackerBox = document.getElementById("weekTrackerBox");
-    const weeksAheadBox = document.getElementById("weeksAheadBox");
-    const recordsBox = document.getElementById("recordsBox");
-
-    if (recordsBox && data.plan && data.plan.formData) {
-        const fd = data.plan.formData;
-        let html = '';
-        if (fd.pushupMax) html += `<div class="info-card"><div class="info-label">Max Push-ups</div><div class="info-value">${fd.pushupMax}</div></div>`;
-        if (fd.pullupMax) html += `<div class="info-card"><div class="info-label">Max Pull-ups</div><div class="info-value">${fd.pullupMax}</div></div>`;
-        if (fd.squatMax) html += `<div class="info-card"><div class="info-label">Max Squats</div><div class="info-value">${fd.squatMax}</div></div>`;
-        if (fd.plankMax) html += `<div class="info-card"><div class="info-label">Plank Hold</div><div class="info-value">${fd.plankMax}s</div></div>`;
-        if (fd.wallSit) html += `<div class="info-card"><div class="info-label">Wall Sit</div><div class="info-value">${fd.wallSit}s</div></div>`;
-        if (fd.mile) html += `<div class="info-card" style="border: 1px solid #10b981; background: rgba(16,185,129,0.05);"><div class="info-label" style="color: #10b981;">Best Mile</div><div class="info-value" style="color: #fff;">${fd.mile}</div></div>`;
-        
-        if (html) {
-            recordsBox.innerHTML = html;
-        } else {
-            recordsBox.innerHTML = `<div class="empty-box">No key records recorded.</div>`;
-        }
-    }
-
-    if (data.plan && data.plan.weeks) {
-        const weekWorkouts = data.plan.weeks[0].workouts;
-        
-        // Render Day Picker
-        if (dayPickerContainer) {
-            
-            dayPickerContainer.innerHTML = weekWorkouts.map(w => {
-                const dateKey = new Date().toDateString() + "_" + w.day;
-                const isDone = data.logs && data.logs.readiness && data.logs.readiness[dateKey] ? '<span style="color:#10b981; margin-left:4px;">✔</span>' : '';
-                return `
-                    <button class="day-tab ${data.plan.activeDay === w.day ? 'active' : ''}" data-day="${w.day}">
-                        ${w.day} ${isDone}
-                    </button>
-                `;
-            }).join("");
-
-            dayPickerContainer.querySelectorAll(".day-tab").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    const selectedDay = btn.dataset.day;
-                    data.plan.activeDay = selectedDay;
-                    saveLocalPlan(data.plan);
-                    renderDashboard(data);
-                });
-            });
-        }
-
-        const activeWorkout = weekWorkouts.find(w => w.day === data.plan.activeDay) || weekWorkouts[0];
-        renderWorkout(todayBox, activeWorkout, data.logs);
-        
-        // Render This Week Tracker
-        if (weekTrackerBox) {
-            weekTrackerBox.innerHTML = weekWorkouts.map(w => `
-                <div class="info-card" style="padding: 12px; background: rgba(0,0,0,0.2);">
-                    <div style="font-size: 0.9rem; font-weight: bold; color: #fff;">${w.day}</div>
-                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">${w.description}</div>
-                </div>
-            `).join("");
-        }
-
-        // Render Weeks Ahead
-        if (weeksAheadBox) {
-            const upNext = data.plan.weeks.slice(1);
-            if (upNext.length === 0) {
-                 weeksAheadBox.innerHTML = `<div class="empty-box">No future weeks built yet.</div>`;
-            } else {
-                 weeksAheadBox.innerHTML = upNext.map(w => `
-                    <div style="margin-bottom: 32px; border-left: 2px solid #3b82f6; padding-left: 16px;">
-                        <h3 style="color: #60a5fa; margin-bottom: 16px; font-size: 1.25rem;">Week ${w.week} ${w.week === 4 ? '(Deload & Next Progression Intro)' : ''}</h3>
-                        <div class="week-grid" style="display: flex; flex-direction: column; gap: 20px;">
-                            ${w.workouts.map(wk => renderReadOnlyWorkoutHTML(wk)).join("")}
-                        </div>
-                    </div>
-                `).join("");
-            }
-        }
-
-    } else if (todayBox) {
-        todayBox.innerHTML = `<div class="empty-box">Go to the <a href="./index.html" style="color: #60a5fa;">Planner</a> to start.</div>`;
-    }
+function getAdjustedWorkout(workout, readiness) {
+  if (!readiness || readiness.level !== "low") return workout;
+  const clone = JSON.parse(JSON.stringify(workout));
+  clone.exercises = clone.exercises
+    .map((exercise, index) => {
+      if (exercise.targetType === "minutes") {
+        return {
+          ...exercise,
+          targets: [Math.max(8, Math.round((exercise.targets?.[0] || 12) * 0.8))],
+          note: `${exercise.note} Today is reduced because readiness is low.`
+        };
+      }
+      if (index >= 2) {
+        return {
+          ...exercise,
+          skipped: true,
+          note: "Accessory cut today because readiness is low."
+        };
+      }
+      return {
+        ...exercise,
+        targets: exercise.targets.slice(0, Math.max(1, exercise.targets.length - 1)),
+        note: `${exercise.note} One set removed because readiness is low.`
+      };
+    });
+  return clone;
 }
 
-function renderReadOnlyWorkoutHTML(workout) {
-    if (!workout) return '';
+function renderTrackerChecklist(items, bucket, date, tracker) {
+  const doneMap = tracker.days?.[date]?.[bucket] || {};
+  return `
+    <div class="track-list">
+      ${items.map((item, index) => `
+        <label class="track-item">
+          <input type="checkbox" data-track-bucket="${bucket}" data-track-date="${date}" data-track-index="${index}" ${doneMap[index] ? "checked" : ""}>
+          <span>${item.text} • ${item.target} ${item.targetType}</span>
+        </label>
+      `).join("")}
+    </div>
+  `;
+}
 
-    const warmup = workout.exercises.filter(ex => ex.type === 'primer');
-    const mainWork = workout.exercises.filter(ex => ex.type === 'mastery' || ex.type === 'builder');
-    const cooldown = workout.exercises.filter(ex => ex.type === 'cooldown');
-
-    function renderSection(title, exercises) {
-        if (!exercises || exercises.length === 0) return '';
-        return `
-            <div style="margin-bottom: 20px;">
-                <h4 style="color: #fff; font-size: 1.1rem; font-weight: bold; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; margin-bottom: 12px;">${title}</h4>
-                ${exercises.map(ex => `
-                    <div class="exercise-card" style="margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-                        <div class="exercise-name" style="font-size: 1.05rem; font-weight: bold; color: #fff;">${ex.name}</div>
-                        <div class="exercise-note" style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 8px;">${ex.note}</div>
-                        <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 8px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #64748b; font-weight: bold; text-transform: uppercase; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
-                                <div style="flex: 1;">Set</div>
-                                <div style="flex: 1.5; text-align: center;">Tempo</div>
-                                <div style="flex: 1; text-align: center;">Target</div>
-                                <div style="flex: 1; text-align: center;">Load/Ast.</div>
-                                <div style="flex: 1; text-align: center;">Rest</div>
-                            </div>
-                            ${ex.setDetails.map(set => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-                                    <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.85rem;">${set.setNumber}</div>
-                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
-                                    <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.85rem;">${set.targetReps}</div>
-                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.loadMode === 'normal' ? 'Bodyweight' : (ex.goalLoad || '-')}</div>
-                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
+function renderExerciseCard(exercise, date, existing) {
+  if (exercise.skipped) {
     return `
-        <div class="today-card" style="margin-top: 0; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
-            <div class="day-top" style="margin-bottom: 16px;">
-                <div>
-                    <div class="day-label" style="font-size: 1.2rem; font-weight: bold; color: #fff;">${workout.day}: ${workout.name}</div>
-                    <div class="day-title" style="color: #94a3b8; font-size: 0.9rem;">${workout.description}</div>
-                </div>
-            </div>
-            <div class="workout-content">
-                ${renderSection('Warm-up', warmup)}
-                ${renderSection('Main Work', mainWork)}
-                ${renderSection('Cooldown', cooldown)}
-            </div>
+      <div class="exercise-box">
+        <div class="exercise-head">
+          <div>
+            <div class="exercise-name">${safeText(exercise.name)}</div>
+            <div class="exercise-sub">${safeText(exercise.note)}</div>
+          </div>
+          <span class="chip neutral">Skipped</span>
         </div>
+      </div>
     `;
+  }
+
+  const loadMode = existing?.loadMode || exercise.loadMode || "normal";
+  const loadValue = existing?.loadValue || "";
+
+  if (exercise.targetType === "minutes") {
+    return `
+      <div class="exercise-box">
+        <div class="exercise-head">
+          <div>
+            <div class="exercise-name">${safeText(exercise.name)}</div>
+            <div class="exercise-sub">${safeText(exercise.note)}</div>
+          </div>
+          <span class="chip neutral">${exercise.category === "endurance" ? "Endurance" : "Work"}</span>
+        </div>
+        <div class="exercise-meta">
+          <span class="meta-pill">${safeText(exercise.tempo)}</span>
+          <span class="meta-pill">${safeText(exercise.rest)}</span>
+        </div>
+        <div class="goal-load-box">${safeText(exercise.goalLoadText)}</div>
+        <label>Goal</label>
+        <div class="small-note">${exercise.targets[0]} minutes</div>
+        <label for="${exercise.id}-log">Log completed work</label>
+        <input id="${exercise.id}-log" class="small-input" data-log-kind="text" data-exercise-id="${exercise.id}" data-date="${date}" type="text" placeholder="Example: 2.1 miles or 24 min" value="${existing?.logText || ""}">
+        <label for="${exercise.id}-note">Notes</label>
+        <textarea id="${exercise.id}-note" class="small-textarea" data-log-kind="note" data-exercise-id="${exercise.id}" data-date="${date}" placeholder="Optional notes">${existing?.noteText || ""}</textarea>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="exercise-box">
+      <div class="exercise-head">
+        <div>
+          <div class="exercise-name">${safeText(exercise.name)}</div>
+          <div class="exercise-sub">${safeText(exercise.note)}</div>
+        </div>
+        <span class="chip neutral">${safeText(titleCase(exercise.category))}</span>
+      </div>
+
+      <div class="exercise-meta">
+        <span class="meta-pill">${safeText(exercise.tempo)}</span>
+        <span class="meta-pill">${safeText(exercise.rest)}</span>
+        ${exercise.progressionText ? `<span class="meta-pill">${safeText(exercise.progressionText)}</span>` : ""}
+      </div>
+
+      <div class="goal-load-box">${safeText(exercise.goalLoadText)}</div>
+
+      <div class="set-grid header">
+        <div>Set</div>
+        <div>Goal</div>
+        <div>Log</div>
+      </div>
+
+      ${(exercise.targets || []).map((target, index) => `
+        <div class="set-grid">
+          <div>Set ${index + 1}</div>
+          <div class="set-goal">${target} ${exercise.targetType}</div>
+          <div>
+            <input class="small-input" data-log-kind="set" data-exercise-id="${exercise.id}" data-date="${date}" data-set-index="${index}" type="text" inputmode="numeric" placeholder="${exercise.targetType}" value="${existing?.values?.[index] || ""}">
+          </div>
+        </div>
+      `).join("")}
+
+      <div class="load-grid">
+        <div>
+          <label for="${exercise.id}-mode">Load mode</label>
+          <select id="${exercise.id}-mode" class="small-input" data-log-kind="mode" data-exercise-id="${exercise.id}" data-date="${date}">
+            <option value="normal" ${loadMode === "normal" ? "selected" : ""}>Normal</option>
+            <option value="load" ${loadMode === "load" ? "selected" : ""}>Added load</option>
+            <option value="assistance" ${loadMode === "assistance" ? "selected" : ""}>Assistance</option>
+          </select>
+        </div>
+        <div>
+          <label for="${exercise.id}-load">Load / assistance value</label>
+          <input id="${exercise.id}-load" class="small-input" data-log-kind="load" data-exercise-id="${exercise.id}" data-date="${date}" type="text" inputmode="decimal" placeholder="Required for load or assistance" value="${loadValue}" ${loadMode === "normal" ? "disabled" : ""}>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
-function renderWorkout(container, workout, dataLogs) {
-    if (!container || !workout) return;
+function renderToday(plan, tracker, todayBox) {
+  const today = toISODate(new Date());
+  const workouts = plan.weeks.flatMap((week) => week.workouts);
+  const current = workouts.find((workout) => workout.date === today) || workouts[0];
 
-    if (!dataLogs) dataLogs = { readiness: {}, reps: {} };
-    const dateKey = new Date().toDateString() + "_" + workout.day;
-    const isReady = dataLogs.readiness[dateKey] === true;
+  if (!current) {
+    todayBox.innerHTML = `<div class="empty-box">No workout is available yet.</div>`;
+    return;
+  }
 
-    let readinessHTML = "";
-    if (workout.exercises.length > 0 && !isReady) {
-        readinessHTML = `
-            <div class="readiness-card" style="background: rgba(255,255,255,0.03); padding: 24px; border-radius: 16px; margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin-top: 0; color: #60a5fa; font-size: 1.25rem;">Readiness Tracker</h3>
-                <p style="font-size: 0.95rem; color: #cbd5e1; margin-bottom: 20px;">Unlock today's session by answering honestly.</p>
-                
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px;">Sleep (1=Poor, 5=Great)</label>
-                    <input type="range" id="sleepVal" min="1" max="5" value="3" style="width: 100%;">
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px;">Nutrition (1=Poor, 5=Great)</label>
-                    <input type="range" id="nutriVal" min="1" max="5" value="3" style="width: 100%;">
-                </div>
-                <div style="margin-bottom: 24px;">
-                    <label style="display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px;">Energy (1=Poor, 5=Great)</label>
-                    <input type="range" id="energyVal" min="1" max="5" value="3" style="width: 100%;">
-                </div>
-                <button id="unlockBtn" class="btn primary" style="width: 100%; padding: 12px; font-weight: bold;">Unlock Workout</button>
-            </div>
-        `;
-    }
+  const dayData = tracker.days?.[current.date] || {};
+  const readiness = getReadinessSummary(dayData);
+  const displayWorkout = getAdjustedWorkout(current, readiness);
 
-    const warmup = workout.exercises.filter(ex => ex.type === 'primer');
-    const mainWork = workout.exercises.filter(ex => ex.type === 'mastery' || ex.type === 'builder');
-    const cooldown = workout.exercises.filter(ex => ex.type === 'cooldown');
-
-    function renderSection(title, exercises) {
-        if (!exercises || exercises.length === 0) return '';
-        return `
-            <div style="margin-bottom: 30px;">
-                <h3 style="color: #fff; font-size: 1.25rem; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 16px;">${title}</h3>
-                ${exercises.map(ex => `
-                    <div class="exercise-card" data-type="${ex.type}" style="margin-bottom: 16px; padding: 20px;">
-                        <div class="exercise-header" style="margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                            <div class="exercise-name" style="font-size: 1.15rem;">${ex.name}</div>
-                            <select class="load-ast-selector" data-ex="${ex.id}" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 6px 12px; color: #10b981; font-size: 0.85rem; font-weight: 600; cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; text-align-last: center;" ${!isReady ? 'disabled' : ''}>
-                                <option value="normal" ${ex.loadMode === 'normal' ? 'selected' : ''}>Bodyweight</option>
-                                <option value="added load" ${ex.loadMode === 'added load' ? 'selected' : ''}>Added Load</option>
-                                <option value="assistance" ${ex.loadMode === 'assistance' ? 'selected' : ''}>Assistance</option>
-                            </select>
-                        </div>
-                        <div class="exercise-note" style="margin-bottom: 16px; color: #94a3b8; font-size: 0.9rem;">${ex.note}</div>
-                        
-                        <div class="sets-wrapper" style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 16px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; font-weight: bold; text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">
-                                <div style="flex: 1;">Set</div>
-                                <div style="flex: 1.5; text-align: center;">Tempo</div>
-                                <div style="flex: 1; text-align: center;">Goal Reps</div>
-                                <div style="flex: 1.5; text-align: center;">Load Goal</div>
-                                <div style="flex: 1; text-align: center;">Target Rest</div>
-                                <div style="flex: 1.5; text-align: right;">Actual (Load & Reps)</div>
-                            </div>
-                            
-                            ${ex.setDetails.map(set => `
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
-                                    <div style="flex: 1; color: #94a3b8; font-weight: 600; font-size: 0.95rem;">${set.setNumber}</div>
-                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${ex.tempo || '-'}</div>
-                                    <div style="flex: 1; text-align: center; color: #60a5fa; font-weight: bold; font-size: 0.95rem;">${set.targetReps}</div>
-                                    <div style="flex: 1.5; text-align: center; color: #cbd5e1; font-size: 0.85rem;" class="load-goal-display" data-ex="${ex.id}">${ex.loadMode === 'normal' ? 'Bodyweight' : (ex.goalLoad || '-')}</div>
-                                    <div style="flex: 1; text-align: center; color: #cbd5e1; font-size: 0.85rem;">${set.rest}</div>
-                                    <div style="flex: 1.5; text-align: right; display: flex; gap: 4px; justify-content: flex-end;">
-                                        <input type="text" class="actual-load-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
-                                            value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] && dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] ? (dataLogs.reps[dateKey][ex.id][set.setNumber + '_load'] || '') : ''}"
-                                            placeholder="${ex.loadMode === 'assistance' ? 'Assigned' : 'Weight'}" 
-                                            style="display: ${(ex.loadMode && ex.loadMode !== 'normal') ? 'inline-block' : 'none'}; width: 60px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 6px; color: #10b981; text-align: center; font-size: 0.85rem; outline: none;"
-                                            ${(ex.loadMode && ex.loadMode !== 'normal') ? 'required' : ''}
-                                            ${!isReady ? 'disabled' : ''}>
-                                        <input type="text" class="actual-rep-input" data-ex="${ex.id}" data-set="${set.setNumber}" 
-                                            value="${dataLogs.reps[dateKey] && dataLogs.reps[dateKey][ex.id] ? (dataLogs.reps[dateKey][ex.id][set.setNumber] || '') : ''}"
-                                            placeholder="Reps" 
-                                            style="width: 50px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 6px; color: #fff; text-align: center; font-size: 0.85rem; outline: none;"
-                                            ${!isReady ? 'disabled' : ''}>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    container.innerHTML = `
-        <div class="today-card animate-fadeIn workout-grid" style="margin-top: 0;">
-            <div class="day-top" style="margin-bottom: 24px;">
-                <div>
-                    <div class="day-label" style="font-size: 1.5rem; font-weight: 900; color: #fff;">${workout.name}</div>
-                    <div class="day-title" style="color: #94a3b8;">${workout.description}</div>
-                </div>
-                <span class="badge" style="background: rgba(96,165,250,0.15); color: #60a5fa; padding: 6px 12px; border-radius: 20px; font-weight: bold;">${workout.duration} min</span>
-            </div>
-            
-            ${readinessHTML}
-            
-            <div class="workout-content" style="${!isReady && workout.exercises.length > 0 ? 'opacity: 0.4; pointer-events: none; filter: blur(2px); transition: all 0.3s ease;' : ''}">
-                ${renderSection('Warm-up', warmup)}
-                ${renderSection('Main Work', mainWork)}
-                ${renderSection('Cooldown', cooldown)}
-            </div>
+  todayBox.innerHTML = `
+    <div class="today-card">
+      <div class="day-top">
+        <div>
+          <div class="day-label">${safeText(displayWorkout.workoutLabel)}</div>
+          <div class="day-title">${safeText(displayWorkout.name)}</div>
+          <div class="day-meta">${safeText(displayWorkout.description)} • ${safeText(displayWorkout.dateLabel)}</div>
         </div>
-    `;
+        <span class="badge ${displayWorkout.isDeload ? "warn" : ""}">${displayWorkout.isDeload ? "Deload" : "Planned"}</span>
+      </div>
 
-    // Set up dynamic inputs based on load-ast-selector
-    container.querySelectorAll(".load-ast-selector").forEach(sel => {
-        sel.addEventListener("change", (e) => {
-            const exId = e.target.dataset.ex;
-            const val = e.target.value;
-            const loadInputs = container.querySelectorAll(`input.actual-load-input[data-ex="${exId}"]`);
-            loadInputs.forEach(inp => {
-                 if (val === 'normal') {
-                     inp.style.display = 'none';
-                     inp.required = false;
-                 } else {
-                     inp.style.display = 'inline-block';
-                     inp.required = true;
-                     inp.placeholder = val === 'assistance' ? 'Assigned' : 'Weight';
-                 }
-            });
-            const displayTargets = container.querySelectorAll(`.load-goal-display[data-ex="${exId}"]`);
-            displayTargets.forEach(el => {
-                if (val === 'normal') el.innerText = 'Bodyweight';
-                else if (val === 'assistance') el.innerText = 'Use clean assistance';
-                else if (val === 'added load') el.innerText = 'Select target weight';
-            });
-            // Update plan in memory so it persists? Not necessarily requested but good if saved
-        });
+      <div class="readiness-box">
+        <div class="block-title">Readiness</div>
+        <div class="readiness-grid">
+          <div>
+            <label for="sleepHours">Sleep (hours)</label>
+            <input id="sleepHours" class="small-input" type="text" inputmode="decimal" value="${dayData._readiness?.sleepHours || ""}">
+          </div>
+          <div>
+            <label for="soreness">Soreness (1 to 5)</label>
+            <input id="soreness" class="small-input" type="text" inputmode="numeric" value="${dayData._readiness?.soreness || ""}">
+          </div>
+          <div>
+            <label for="energy">Energy (1 to 5)</label>
+            <input id="energy" class="small-input" type="text" inputmode="numeric" value="${dayData._readiness?.energy || ""}">
+          </div>
+        </div>
+        <div class="button-row">
+          <button type="button" id="saveReadinessBtn">Save readiness</button>
+        </div>
+        <div class="small-note">${readiness ? `${readiness.label}. ${readiness.note}` : "Set readiness before logging the workout."}</div>
+      </div>
+
+      <div class="session-block">
+        <div class="block-title">Warm-up</div>
+        ${renderTrackerChecklist(displayWorkout.warmup, "warmup", current.date, tracker)}
+      </div>
+
+      ${(displayWorkout.exercises || []).map((exercise) => renderExerciseCard(exercise, current.date, dayData[exercise.id])).join("")}
+
+      <div class="session-block">
+        <div class="block-title">Cooldown</div>
+        ${renderTrackerChecklist(displayWorkout.cooldown, "cooldown", current.date, tracker)}
+      </div>
+
+      <div class="button-row">
+        <button type="button" id="saveWorkoutBtn">Save workout</button>
+      </div>
+    </div>
+  `;
+
+  byId("saveReadinessBtn")?.addEventListener("click", () => {
+    const next = getTracker(plan.createdAt);
+    if (!next.days[current.date]) next.days[current.date] = {};
+    next.days[current.date]._readiness = {
+      sleepHours: byId("sleepHours")?.value || "",
+      soreness: byId("soreness")?.value || "",
+      energy: byId("energy")?.value || ""
+    };
+    saveTracker(plan.createdAt, next);
+    initDashboard();
+  });
+
+  qsa('[data-track-bucket]').forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const next = getTracker(plan.createdAt);
+      const date = checkbox.dataset.trackDate;
+      if (!next.days[date]) next.days[date] = {};
+      const bucket = checkbox.dataset.trackBucket;
+      if (!next.days[date][bucket]) next.days[date][bucket] = {};
+      next.days[date][bucket][checkbox.dataset.trackIndex] = checkbox.checked;
+      saveTracker(plan.createdAt, next);
     });
+  });
 
-    // Event Listeners
-    if (!isReady && workout.exercises.length > 0) {
-        document.getElementById("unlockBtn").addEventListener("click", () => {
-            const sleepVal = parseInt(document.getElementById("sleepVal").value, 10);
-            const energyVal = parseInt(document.getElementById("energyVal").value, 10);
-            const nutriVal = parseInt(document.getElementById("nutriVal").value, 10);
+  qsa('[data-log-kind="mode"]').forEach((select) => {
+    select.addEventListener("change", () => {
+      const loadInput = byId(`${select.dataset.exerciseId}-load`);
+      if (loadInput) loadInput.disabled = select.value === "normal";
+    });
+  });
 
-            dataLogs.readiness[dateKey] = true;
-            localStorage.setItem("fitnessplan_logs", JSON.stringify(dataLogs));
-            
-            const wc = container.querySelector(".workout-content");
-            wc.style.opacity = "1";
-            wc.style.pointerEvents = "auto";
-            wc.style.filter = "none";
-            container.querySelector(".readiness-card").style.display = "none";
-            container.querySelectorAll("input.actual-rep-input").forEach(inp => inp.disabled = false);
-            container.querySelectorAll("input.actual-load-input").forEach(inp => inp.disabled = false);
-
-            if (sleepVal + energyVal + nutriVal < 8 || sleepVal < 2 || energyVal < 2) {
-                // Low readiness / overload
-                const alertDiv = document.createElement("div");
-                alertDiv.style.padding = "16px";
-                alertDiv.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
-                alertDiv.style.border = "1px solid #ef4444";
-                alertDiv.style.color = "#ef4444";
-                alertDiv.style.borderRadius = "8px";
-                alertDiv.style.marginBottom = "24px";
-                alertDiv.innerHTML = "<strong>Overload Protection Active:</strong> You may be doing too much right now or have low readiness. Volume has been reduced for protection. Progression is paused until readiness and performance improve. Please skip all accessory (builder) exercises today and cut remaining sets by 1.";
-                wc.insertBefore(alertDiv, wc.firstChild);
-
-                // Auto-hide builder exercises to reduce volume
-                const allExCards = container.querySelectorAll('.exercise-card[data-type="builder"]');
-                allExCards.forEach(card => {
-                    card.style.display = 'none';
-                });
-                
-                // Cut remaining mastery sets by 1 via DOM hiding
-                const masteryCards = container.querySelectorAll('.exercise-card[data-type="mastery"]');
-                masteryCards.forEach(card => {
-                    const sets = card.querySelectorAll('.sets-wrapper > div:nth-child(n+2)'); // First child is header
-                    if (sets.length > 1) {
-                         const lastSet = sets[sets.length - 1];
-                         lastSet.style.display = 'none';
-                         // Disable required inputs so form can submit or not break
-                         lastSet.querySelectorAll('input').forEach(inp => inp.disabled = true);
-                    }
-                });
-            } else if (sleepVal + energyVal + nutriVal > 12) {
-                // High readiness
-                const alertDiv = document.createElement("div");
-                alertDiv.style.padding = "12px";
-                alertDiv.style.backgroundColor = "rgba(16, 185, 129, 0.1)";
-                alertDiv.style.border = "1px solid #10b981";
-                alertDiv.style.color = "#10b981";
-                alertDiv.style.borderRadius = "8px";
-                alertDiv.style.marginBottom = "24px";
-                alertDiv.innerText = "High Readiness: You're fully recovered! Maintain clean technique and proceed with the planned session. Do not exceed safe targets.";
-                wc.insertBefore(alertDiv, wc.firstChild);
-            }
-        });
+  byId("saveWorkoutBtn")?.addEventListener("click", () => {
+    const currentTracker = getTracker(plan.createdAt);
+    if (!currentTracker.days[current.date]) currentTracker.days[current.date] = {};
+    const readiness = getReadinessSummary(currentTracker.days[current.date]);
+    if (!readiness) {
+      alert("Set readiness first.");
+      return;
     }
 
-    // Auto-save reps and loads
-    container.querySelectorAll("input.actual-rep-input, input.actual-load-input").forEach(inp => {
-        inp.addEventListener("change", (e) => {
-            const exId = e.target.dataset.ex;
-            const setNum = e.target.dataset.set;
-            const isLoad = e.target.classList.contains("actual-load-input");
-            const val = e.target.value;
-            
-            if (!dataLogs.reps[dateKey]) dataLogs.reps[dateKey] = {};
-            if (!dataLogs.reps[dateKey][exId]) dataLogs.reps[dateKey][exId] = {};
-            
-            if (isLoad) {
-                dataLogs.reps[dateKey][exId][setNum + '_load'] = val;
-            } else {
-                dataLogs.reps[dateKey][exId][setNum] = val;
-            }
-            
-            localStorage.setItem("fitnessplan_logs", JSON.stringify(dataLogs));
-            
-            // Visual feedback
-            e.target.style.borderColor = "#10b981";
-            e.target.style.background = "rgba(16, 185, 129, 0.1)";
-            setTimeout(() => {
-                e.target.style.borderColor = "rgba(255,255,255,0.2)";
-                e.target.style.background = "rgba(0,0,0,0.3)";
-            }, 800);
-        });
+    let loadError = "";
+
+    displayWorkout.exercises.forEach((exercise) => {
+      if (exercise.skipped) return;
+
+      if (exercise.targetType === "minutes") {
+        currentTracker.days[current.date][exercise.id] = {
+          logText: byId(`${exercise.id}-log`)?.value || "",
+          noteText: byId(`${exercise.id}-note`)?.value || ""
+        };
+        return;
+      }
+
+      const values = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="set"]`).map((input) => toNumber(input.value, 0)).filter((v) => v > 0);
+      const mode = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="mode"]`)[0]?.value || "normal";
+      const loadValue = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="load"]`)[0]?.value || "";
+
+      if ((mode === "load" || mode === "assistance") && !String(loadValue).trim()) {
+        loadError = `${exercise.name}: enter a load or assistance value.`;
+      }
+
+      currentTracker.days[current.date][exercise.id] = {
+        values,
+        loadMode: mode,
+        loadValue
+      };
     });
+
+    if (loadError) {
+      alert(loadError);
+      return;
+    }
+
+    saveTracker(plan.createdAt, currentTracker);
+    initDashboard();
+  });
+}
+
+function renderRecords(plan, tracker, recordsBox) {
+  const pushPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "push", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
+  const pullAssistPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "pull", (entry) => entry?.loadMode === "assistance" ? toNumber(entry.loadValue, null) : null);
+  const plankPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "core", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
+
+  const cards = [
+    { label: "Best mile time", value: plan.records.mileTime, note: "Baseline from planner or workout logs." },
+    { label: "Longest run distance", value: plan.records.longestRunDistance, note: "Baseline from planner." },
+    { label: "Best push result", value: pushPoints.length ? `${Math.max(...pushPoints.map((p) => p.value))} reps` : plan.records.pushBest, note: "Clean reps matter more than grind reps." },
+    { label: "Best pull result", value: pullAssistPoints.length ? `${Math.min(...pullAssistPoints.map((p) => p.value))} assistance` : plan.records.pullBest, note: "Lower assistance counts as progress." },
+    { label: "Best plank hold", value: plankPoints.length ? `${Math.max(...plankPoints.map((p) => p.value))} sec` : plan.records.plankBest, note: "Stable holds only." },
+    { label: "Best squat result", value: plan.records.squatBest, note: "Baseline from planner or logged sessions." }
+  ];
+
+  recordsBox.innerHTML = cards.map((card) => `
+    <div class="record-card">
+      <div class="record-title">${card.label}</div>
+      <div class="record-value">${safeText(card.value)}</div>
+      <div class="record-note">${safeText(card.note)}</div>
+    </div>
+  `).join("");
+}
+
+function entryHasAssist(entry) {
+  return entry?.loadMode === "assistance" && String(entry?.loadValue || "").trim() !== "";
+}
+
+function renderSignals(plan, tracker, signalsBox) {
+  const pushPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "push", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
+  const pullAssistPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "pull", (entry) => entryHasAssist(entry) ? toNumber(entry?.loadValue, null) : null);
+  const plankPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "core", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
+
+  const notes = [];
+  if (detectPlateau(pushPoints, "higher")) notes.push("Push progress looks flat. A reduced-volume week may help.");
+  if (detectPlateau(pullAssistPoints, "lower")) notes.push("Pull assistance is not dropping. Keep quality high before progressing.");
+  if (detectPlateau(plankPoints, "higher")) notes.push("Core endurance is flat. Hold quality first, then time.");
+
+  if (!notes.length) notes.push("No major warning signs right now. Stay consistent and keep quality high.");
+
+  signalsBox.innerHTML = safeText(notes.join(" "));
+}
+
+function renderQuickStats(plan, tracker, quickStatsBox) {
+  const totalWorkouts = plan.weeks.reduce((sum, week) => sum + week.workouts.length, 0);
+  const loggedWorkouts = Object.values(tracker.days || {}).filter((day) => Object.keys(day).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key))).length;
+  const hypertrophyWorkouts = plan.weeks.flatMap((week) => week.workouts).filter((workout) => workout.includesHypertrophy).length;
+
+  quickStatsBox.innerHTML = `
+    <div class="info-card">
+      <div class="info-label">Workouts in block</div>
+      <div class="info-value">${totalWorkouts}</div>
+      <div class="info-sub">4-week plan</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Logged workouts</div>
+      <div class="info-value">${loggedWorkouts}</div>
+      <div class="info-sub">Saved on this device</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Hypertrophy sessions</div>
+      <div class="info-value">${hypertrophyWorkouts}</div>
+      <div class="info-sub">Strength days use controlled hypertrophy ranges</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Safety mode</div>
+      <div class="info-value">${safeText(plan.profile.safetyMode)}</div>
+      <div class="info-sub">Deload built into week 4</div>
+    </div>
+  `;
+}
+
+function renderProfile(plan, profileBox, currentPlanBox, tracker) {
+  const user = getUser();
+  profileBox.innerHTML = `
+    <div class="info-card">
+      <div class="info-label">User</div>
+      <div class="info-value">${safeText(user?.username, "Local user")}</div>
+      <div class="info-sub">${safeText(user?.email, "Stored locally")}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Age band</div>
+      <div class="info-value">${safeText(plan.profile.ageBand)}</div>
+      <div class="info-sub">${safeText(plan.profile.safetyMode)}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Focus</div>
+      <div class="info-value">${plan.profile.focus.map(titleCase).join(", ") || "Not set yet"}</div>
+      <div class="info-sub">${plan.profile.equipment.map(titleCase).join(", ") || "Bodyweight only"}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Training split</div>
+      <div class="info-value">${plan.profile.daysPerWeek} workouts / week</div>
+      <div class="info-sub">${plan.profile.sessionLength} minutes per workout</div>
+    </div>
+  `;
+
+  currentPlanBox.innerHTML = `
+    <div class="info-card">
+      <div class="info-label">Current block</div>
+      <div class="info-value">4-week plan</div>
+      <div class="info-sub">${safeText(plan.weeks[0]?.note)}</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Readiness system</div>
+      <div class="info-value">Active</div>
+      <div class="info-sub">Low readiness cuts accessories and reduces volume.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Progression</div>
+      <div class="info-value">Controlled</div>
+      <div class="info-sub">No prescriptions above your reported max.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">Hypertrophy</div>
+      <div class="info-value">Included</div>
+      <div class="info-sub">Strength work uses safe hypertrophy ranges and rep reserves.</div>
+    </div>
+  `;
+
+  const streak = getWorkoutStreak(plan, tracker);
+  byId("currentStreakNumber").textContent = streak;
+  byId("currentStreakText").textContent = streak > 0 ? `You have ${streak} completed workout day${streak === 1 ? "" : "s"} in a row.` : "Complete today’s workout to start your streak.";
+}
+
+function getWorkoutStreak(plan, tracker) {
+  const workouts = plan.weeks.flatMap((week) => week.workouts).filter((workout) => workout.date <= toISODate(new Date()));
+  let streak = 0;
+  for (let i = workouts.length - 1; i >= 0; i -= 1) {
+    const day = tracker.days?.[workouts[i].date];
+    const hasWorkoutLog = day && Object.keys(day).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key));
+    if (!hasWorkoutLog) break;
+    streak += 1;
+  }
+  return streak;
+}
+
+function renderWeek(plan, tracker, weekTrackerBox, weeksAheadBox) {
+  const today = new Date();
+  const currentWeekNumber = clamp(Math.floor((today - new Date(`${plan.weeks[0].workouts[0].date}T12:00:00`)) / (7 * 24 * 60 * 60 * 1000)) + 1, 1, 4);
+  const currentWeek = plan.weeks.find((week) => week.week === currentWeekNumber) || plan.weeks[0];
+  byId("weekTitle").textContent = safeText(currentWeek.label, "Week");
+
+  weekTrackerBox.innerHTML = currentWeek.workouts.map((workout) => {
+    const dayLog = tracker.days?.[workout.date];
+    const logged = dayLog && Object.keys(dayLog).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key));
+    return `
+      <div class="week-card">
+        <div class="week-card-title">${safeText(workout.workoutLabel)} • ${safeText(workout.name)}</div>
+        <div class="week-card-sub">${safeText(workout.description)}</div>
+        <div class="week-card-sub">${safeText(workout.dateLabel)}</div>
+        <div class="week-card-sub">${logged ? "Logged" : workout.isDeload ? "Deload week" : "Planned"}</div>
+      </div>
+    `;
+  }).join("");
+
+  weeksAheadBox.innerHTML = plan.weeks.map((week) => `
+    <div class="week-section">
+      <div class="week-title">${safeText(week.label)}</div>
+      <div class="week-mini-grid">
+        ${week.workouts.map((workout) => `
+          <div class="week-mini-card">
+            <div class="week-mini-label">${safeText(workout.workoutLabel)}</div>
+            <div class="week-mini-sub">${safeText(workout.name)}</div>
+            <div class="week-mini-sub">${safeText(workout.description)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+function initDashboard() {
+  const currentPlanBox = byId("currentPlanBox");
+  const profileBox = byId("profileBox");
+  const recordsBox = byId("recordsBox");
+  const signalsBox = byId("signalsBox");
+  const quickStatsBox = byId("quickStatsBox");
+  const todayBox = byId("todayBox");
+  const weekTrackerBox = byId("weekTrackerBox");
+  const weeksAheadBox = byId("weeksAheadBox");
+  const logoutBtn = byId("logoutBtn");
+
+  const plan = getCurrentPlan();
+
+  if (!plan) {
+    currentPlanBox.innerHTML = `<div class="empty-box">Build your plan in the planner first.</div>`;
+    profileBox.innerHTML = `<div class="empty-box">No profile loaded yet.</div>`;
+    recordsBox.innerHTML = `<div class="empty-box">No records yet.</div>`;
+    signalsBox.innerHTML = `No coaching signals yet.`;
+    quickStatsBox.innerHTML = `<div class="empty-box">No quick stats yet.</div>`;
+    todayBox.innerHTML = `<div class="empty-box">No workout to show yet.</div>`;
+    weekTrackerBox.innerHTML = `<div class="empty-box">No week loaded yet.</div>`;
+    weeksAheadBox.innerHTML = `<div class="empty-box">No future weeks yet.</div>`;
+    byId("currentStreakNumber").textContent = "0";
+    byId("currentStreakText").textContent = "Build a plan to get started.";
+  } else {
+    const tracker = getTracker(plan.createdAt);
+    renderProfile(plan, profileBox, currentPlanBox, tracker);
+    renderRecords(plan, tracker, recordsBox);
+    renderSignals(plan, tracker, signalsBox);
+    renderQuickStats(plan, tracker, quickStatsBox);
+    renderToday(plan, tracker, todayBox);
+    renderWeek(plan, tracker, weekTrackerBox, weeksAheadBox);
+  }
+
+  logoutBtn?.addEventListener("click", () => {
+    localStorage.removeItem(STORAGE_KEYS.token);
+    localStorage.removeItem(STORAGE_KEYS.user);
+    window.location.href = "./account-test.html";
+  });
 }
