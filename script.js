@@ -141,6 +141,19 @@ function saveCurrentPlan(plan) {
   localStorage.setItem(STORAGE_KEYS.currentPlan, serialized);
   localStorage.setItem(STORAGE_KEYS.legacyPlan, serialized);
 }
+function getTodaySelectionKey(planId = "local") {
+  const user = getUser();
+  const userId = user?.email || "guest";
+  return `fitnessplan_today_selection_${userId}_${planId}`;
+}
+
+function getSelectedWorkoutId(planId = "local") {
+  return localStorage.getItem(getTodaySelectionKey(planId)) || "";
+}
+
+function saveSelectedWorkoutId(planId = "local", workoutId = "") {
+  localStorage.setItem(getTodaySelectionKey(planId), workoutId);
+}
 
 function getTrackerKey(planId = "local") {
   const user = getUser();
