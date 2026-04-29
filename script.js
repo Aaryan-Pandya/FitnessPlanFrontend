@@ -1386,7 +1386,7 @@ function renderToday(plan, tracker, todayBox) {
     <div class="today-tabs">
       ${weekWorkouts
         .map((workout) => {
-          const label = safeText(workout.workoutLabel).replace("Workout", "Day");
+         safeText(workout.workoutLabel).replace("Workout", "Day")
           return `
             <button
               type="button"
