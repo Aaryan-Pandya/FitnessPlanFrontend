@@ -957,6 +957,279 @@ p {
   min-width: 0;
 }
 
+
+/* ---------- Exercise card / table layout ---------- */
+
+.exercise-box {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid rgba(120, 150, 255, 0.18);
+  border-radius: 22px;
+  background: rgba(6, 18, 52, 0.7);
+  overflow: visible;
+}
+
+.exercise-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.exercise-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.exercise-sub {
+  margin-top: 6px;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: rgba(230, 238, 255, 0.88);
+}
+
+.exercise-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #eef3ff;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.goal-load-box {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(233, 241, 255, 0.92);
+  line-height: 1.45;
+}
+
+.exercise-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
+.exercise-log-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.exercise-log-table thead th {
+  text-align: left;
+  padding: 0 0 12px 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #eef3ff;
+  border-bottom: 1px solid rgba(120, 150, 255, 0.16);
+}
+
+.exercise-log-table tbody td {
+  padding: 14px 12px 14px 0;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(120, 150, 255, 0.1);
+  color: #eef3ff;
+  font-size: 1rem;
+}
+
+.exercise-log-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.exercise-log-table td:first-child,
+.exercise-log-table th:first-child {
+  width: 110px;
+}
+
+.exercise-log-table td:nth-child(2),
+.exercise-log-table th:nth-child(2) {
+  width: 160px;
+}
+
+.exercise-log-table td:last-child,
+.exercise-log-table th:last-child {
+  min-width: 220px;
+}
+
+.table-input {
+  width: 100%;
+  min-width: 160px;
+}
+
+.load-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.notes-block {
+  margin-top: 8px;
+}
+
+.notes-block label,
+.load-grid label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #eef3ff;
+}
+
+.small-input,
+.small-textarea {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid rgba(120, 150, 255, 0.22);
+  background: rgba(8, 18, 48, 0.9);
+  color: #eef3ff;
+  padding: 14px 16px;
+  font-size: 1rem;
+  line-height: 1.3;
+  box-sizing: border-box;
+}
+
+.small-input::placeholder,
+.small-textarea::placeholder {
+  color: rgba(195, 205, 230, 0.6);
+}
+
+.small-textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+/* ---------- iPad / medium screens ---------- */
+
+@media (max-width: 1100px) {
+  .exercise-box {
+    padding: 18px;
+  }
+
+  .exercise-log-table {
+    min-width: 520px;
+  }
+
+  .load-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Phone layout ---------- */
+
+@media (max-width: 768px) {
+  .exercise-box {
+    padding: 18px 16px;
+    margin-top: 22px;
+  }
+
+  .exercise-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .exercise-name {
+    font-size: 1.18rem;
+  }
+
+  .exercise-sub {
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .exercise-meta {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .goal-load-box {
+    margin-bottom: 18px;
+  }
+
+  .exercise-table-wrap {
+    overflow: visible;
+    margin-bottom: 18px;
+  }
+
+  .exercise-log-table,
+  .exercise-log-table thead,
+  .exercise-log-table tbody,
+  .exercise-log-table th,
+  .exercise-log-table td,
+  .exercise-log-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  .exercise-log-table {
+    min-width: 0;
+  }
+
+  .exercise-log-table thead {
+    display: none;
+  }
+
+  .exercise-log-table tbody tr {
+    padding: 16px;
+    margin-bottom: 14px;
+    border: 1px solid rgba(120, 150, 255, 0.14);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .exercise-log-table tbody td {
+    padding: 0;
+    margin-bottom: 12px;
+    border: none;
+  }
+
+  .exercise-log-table tbody td:last-child {
+    margin-bottom: 0;
+  }
+
+  .exercise-log-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #eef3ff;
+  }
+
+  .table-input {
+    min-width: 0;
+  }
+
+  .load-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin-top: 18px;
+  }
+
+  .small-input,
+  .small-textarea {
+    padding: 16px 16px;
+    font-size: 1.02rem;
+  }
+}
+
 .info-value,
 .info-sub,
 .record-note,
