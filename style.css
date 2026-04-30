@@ -1827,3 +1827,75 @@ h1 {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+/* ===== ACTUAL ROOT-CAUSE FIX ===== */
+
+.planner-layout {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 460px !important;
+  gap: 28px !important;
+  align-items: start !important;
+}
+
+.planner-panel,
+.planner-layout > .panel:first-child {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.planner-panel input:not([type="checkbox"]),
+.planner-panel select,
+.planner-panel textarea,
+.planner-panel .small-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.planner-panel .track-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.planner-panel .track-item input[type="checkbox"] {
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  margin: 0 !important;
+}
+
+.planner-panel .track-item span {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+}
+
+.planner-layout > aside.panel {
+  width: 460px !important;
+  max-width: 460px !important;
+  min-width: 460px !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 1100px) {
+  .planner-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .planner-layout > aside.panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+}
