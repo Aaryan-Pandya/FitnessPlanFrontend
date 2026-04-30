@@ -4,7 +4,7 @@ const STORAGE_KEYS = {
   plannerDraft: "fitnessplan_planner_draft",
   currentPlanCache: "fitnessplan_current_plan_cache"
 };
-
+localStorage.removeItem("fitnessplan_planner_draft");
 const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
 
 document.addEventListener("DOMContentLoaded", async () => {
