@@ -151,6 +151,19 @@ async function saveCurrentPlan(plan) {
   if (!user || !user.email) {
     console.error("No user logged in");
     return;
+
+    await fetch("https://fitnessplan-api.cosmowind2013.workers.dev/savePlan", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    email: user.email,
+    plan: plan
+  })
+});
+
+console.log("Plan saved to backend");
   }
 
   await fetch("https://YOUR-WORKER-URL/savePlan", {
