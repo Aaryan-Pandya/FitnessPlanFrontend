@@ -1788,3 +1788,42 @@ h1 {
     grid-template-columns: 1fr !important;
   }
 }
+/* ===== planner checkbox row emergency fix ===== */
+
+.planner-step input[type="checkbox"] {
+  width: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  height: 28px !important;
+  flex: 0 0 28px !important;
+  display: inline-block !important;
+  margin: 0 !important;
+}
+
+.planner-step .track-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.planner-step .track-item span {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: auto !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+.planner-step input:not([type="checkbox"]),
+.planner-step select,
+.planner-step textarea,
+.planner-step .small-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
