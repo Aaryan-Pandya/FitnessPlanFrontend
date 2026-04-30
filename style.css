@@ -1602,7 +1602,7 @@ h1 {
 
 .planner-panel,
 .planner-layout .panel {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .planner-step {
