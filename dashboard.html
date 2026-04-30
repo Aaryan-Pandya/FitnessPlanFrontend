@@ -9,109 +9,69 @@
 <body data-page="dashboard">
   <header class="topbar">
     <div class="brand">FitnessPlan</div>
-    <div class="topbar-actions">
-      <a class="nav-btn secondary" href="./index.html?planner=1">Planner</a>
-      <a class="nav-btn secondary active" href="./dashboard.html">Dashboard</a>
-      <a class="nav-btn secondary" href="./account-test.html">Account</a>
-      <button id="logoutBtn" type="button" class="secondary">Log out</button>
-    </div>
+    <nav class="nav-pills">
+      <a href="./index.html" class="nav-pill">Planner</a>
+      <a href="./dashboard.html" class="nav-pill active">Dashboard</a>
+      <a href="./account-test.html" class="nav-pill">Account</a>
+      <button type="button" id="logoutBtn" class="nav-pill">Log out</button>
+    </nav>
   </header>
 
-  <main class="container dashboard-shell">
-    <section class="hero-grid">
-      <section class="card streak-hero">
-        <p class="eyebrow">Current streak</p>
-        <div id="currentStreakNumber" class="streak-main">0</div>
-        <div class="streak-label">Workout days in a row</div>
-        <div id="currentStreakText" class="streak-sub">Build a plan to get started.</div>
-      </section>
-
-      <section class="card">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow">Overview</p>
-            <h1>Your dashboard</h1>
-          </div>
-          <span class="mini-pill">4-week block</span>
-        </div>
-        <p class="helper">
-          Readiness changes the session. Records update from your planner and your logs.
-        </p>
-
-        <div class="dashboard-grid two-up">
-          <div id="profileBox" class="profile-grid"></div>
-          <div id="currentPlanBox" class="plan-summary-grid"></div>
-        </div>
-      </section>
+  <main class="page-shell dashboard-shell">
+    <section class="streak-panel panel">
+      <div class="eyebrow">Current streak</div>
+      <div id="currentStreakNumber" class="streak-number">0</div>
+      <div class="streak-label">Workout days in a row</div>
+      <div id="currentStreakText" class="small-note">Build a plan to get started.</div>
     </section>
 
-    <section class="dashboard-grid two-up">
-      <section class="card">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow">Records</p>
-            <h2>Key records</h2>
-          </div>
-        </div>
-        <div id="recordsBox" class="records-grid"></div>
-      </section>
+    <section class="panel overview-panel">
+      <div class="eyebrow">Overview</div>
+      <h1>Your dashboard</h1>
+      <div class="hero-badge">4-week block</div>
+      <p>Readiness changes the session. Records update from your planner and your logs.</p>
 
-      <section class="card">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow">Signals</p>
-            <h2>Coaching signals</h2>
-          </div>
-        </div>
-        <div id="signalsBox" class="preview-summary">No coaching signals yet.</div>
-      </section>
+      <div id="profileBox" class="info-grid"></div>
+      <div id="currentPlanBox" class="info-grid section-top"></div>
     </section>
 
-    <section class="dashboard-grid two-up">
-      <section class="card">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow">Quick stats</p>
-            <h2>Plan stats</h2>
-          </div>
-        </div>
-        <div id="quickStatsBox" class="dashboard-grid two-up"></div>
-      </section>
-
-      <section class="card">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow">This week</p>
-            <h2 id="weekTitle">Week</h2>
-          </div>
-        </div>
-        <div id="weekTrackerBox" class="week-grid"></div>
-      </section>
+    <section class="panel">
+      <div class="eyebrow">Records</div>
+      <h2>Key records</h2>
+      <div id="recordsBox" class="records-grid"></div>
     </section>
 
-    <section class="card">
-      <div class="section-title-row">
-        <div>
-          <p class="eyebrow">Today</p>
-          <h2>Today’s workout</h2>
-        </div>
-      </div>
-      <div id="todayBox" class="today-wrap">
-        <div class="empty-box">No workout to show yet.</div>
-      </div>
+    <section class="panel">
+      <div class="eyebrow">Signals</div>
+      <h2>Coaching signals</h2>
+      <div id="signalsBox">No coaching signals yet.</div>
     </section>
 
-    <section class="card">
-      <div class="section-title-row">
-        <div>
-          <p class="eyebrow">Weeks ahead</p>
-          <h2>Plan ahead</h2>
-        </div>
-      </div>
-      <div id="weeksAheadBox" class="weeks-ahead-wrap"></div>
+    <section class="panel">
+      <div class="eyebrow">Quick stats</div>
+      <h2>Plan stats</h2>
+      <div id="quickStatsBox" class="info-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">This week</div>
+      <h2 id="weekTitle">Week</h2>
+      <div id="weekTrackerBox" class="week-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Today</div>
+      <h2>Today’s workout</h2>
+      <div id="todayBox"><div class="empty-box">No workout to show yet.</div></div>
+    </section>
+
+    <section class="panel">
+      <div class="eyebrow">Weeks ahead</div>
+      <h2>Plan ahead</h2>
+      <div id="weeksAheadBox"></div>
     </section>
   </main>
 
-  <script type="module" src="./script.js"></script>
+  <script src="./script.js"></script>
 </body>
 </html>
