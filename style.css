@@ -1570,3 +1570,134 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+/* ===== PLANNER OVERFLOW / CUT-OFF FIX ===== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+.planner-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.planner-layout > * {
+  min-width: 0;
+}
+
+.planner-panel,
+.planner-layout .panel,
+.preview-panel,
+.summary-list,
+.summary-item,
+.preview-workout,
+.preview-week,
+.preview-workout-list {
+  min-width: 0;
+}
+
+.planner-panel,
+.planner-layout .panel {
+  overflow: hidden;
+}
+
+.planner-step {
+  width: 100%;
+  min-width: 0;
+}
+
+.planner-step label {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.planner-step input,
+.planner-step select,
+.planner-step textarea,
+.planner-step .small-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.planner-step .form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 160px);
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.planner-step .track-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 16px 18px;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.planner-step .track-item span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.planner-step .track-item input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin-top: 4px;
+}
+
+.status-box,
+.summary-item,
+.preview-workout,
+.preview-panel,
+.planner-step,
+.planner-panel {
+  max-width: 100%;
+}
+
+.summary-item,
+.preview-workout {
+  overflow: hidden;
+}
+
+.summary-value,
+.preview-workout-name,
+.preview-workout-sub,
+.small-note {
+  overflow-wrap: anywhere;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.button-row > * {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 980px) {
+  .planner-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .planner-step .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
