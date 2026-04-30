@@ -1701,3 +1701,27 @@ h1 {
     grid-template-columns: 1fr;
   }
 }
+/* ===== planner heading clipping fix ===== */
+
+.planner-layout > aside.panel {
+  padding: 22px;
+}
+
+.planner-layout > aside.panel .eyebrow,
+.planner-layout > aside.panel h2,
+.planner-layout > aside.panel .small-note {
+  position: relative;
+  z-index: 2;
+  margin-left: 0;
+  padding-left: 2px;
+  overflow: visible;
+}
+
+.planner-layout > aside.panel .summary-list,
+.planner-layout > aside.panel .preview-panel,
+.planner-layout > aside.panel .summary-item,
+.planner-layout > aside.panel .preview-workout {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
