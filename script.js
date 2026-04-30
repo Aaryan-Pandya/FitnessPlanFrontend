@@ -145,12 +145,27 @@ function savePlannerDraft(draft) {
   localStorage.setItem(STORAGE_KEYS.plannerDraft, JSON.stringify(draft));
 }
 
-function saveCurrentPlan(plan) {
-  const serialized = JSON.stringify(plan);
-  localStorage.setItem(STORAGE_KEYS.currentPlan, serialized);
-  localStorage.setItem(STORAGE_KEYS.legacyPlan, serialized);
-}
+async function saveCurrentPlan(plan) {
+  const user = getCurrentUser(); // whatever you use
 
+  if (!user || !user.email) {
+    console.error("No user logged in");
+    return;
+  }
+
+  await fetch("https://YOUR-WORKER-URL/savePlan", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: user.email,
+      plan: plan,
+    }),
+  });
+
+  console.log("Plan saved to backend");
+}
 function getTrackerKey(planId = "local") {
   const user = getUser();
   const userId = user?.email || "guest";
