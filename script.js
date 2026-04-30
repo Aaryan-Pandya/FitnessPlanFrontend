@@ -1,28 +1,3 @@
-const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
-
-async function savePlanToBackend(email, plan) {
-  await fetch(`${API_BASE}/save-plan`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, plan })
-  });
-}
-
-async function loadPlanFromBackend(email) {
-  const res = await fetch(`${API_BASE}/get-plan`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email })
-  });
-
-  const data = await res.json();
-  return data.plan ? JSON.parse(data.plan) : null;
-}
-
 const STORAGE_KEYS = {
   token: "fitnessplan_token",
   user: "fitnessplan_user",
@@ -32,11 +7,27 @@ const STORAGE_KEYS = {
   trackerPrefix: "fitnessplan_tracker_"
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  const page = document.body?.dataset?.page || "";
-  if (page === "planner") initPlanner();
-  if (page === "dashboard") initDashboard();
+const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const page = detectPage();
+
+  if (page === "planner") {
+    initPlanner();
+  }
+
+  if (page === "dashboard") {
+    await initDashboard();
+  }
 });
+
+function detectPage() {
+  const explicit = document.body?.dataset?.page || "";
+  if (explicit) return explicit;
+  if (byId("plannerForm") && byId("schedulePreview")) return "planner";
+  if (byId("todayBox") && byId("weekTrackerBox")) return "dashboard";
+  return "";
+}
 
 function byId(id) {
   return document.getElementById(id);
@@ -118,19 +109,31 @@ function addDays(dateLike, days) {
   return date;
 }
 
-function getUser() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.user) || "null");
-  } catch {
-    return null;
-  }
-}
-
 function setStatus(el, message, type = "") {
   if (!el) return;
   el.textContent = message;
   el.className = "status-box";
   if (type) el.classList.add(type);
+}
+
+function getCurrentUser() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.user);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentToken() {
+  return localStorage.getItem(STORAGE_KEYS.token) || "";
+}
+
+function savePlannerDraft(draft) {
+  localStorage.setItem(STORAGE_KEYS.plannerDraft, JSON.stringify(draft));
 }
 
 function getPlannerDraft() {
@@ -141,47 +144,154 @@ function getPlannerDraft() {
   }
 }
 
-function savePlannerDraft(draft) {
-  localStorage.setItem(STORAGE_KEYS.plannerDraft, JSON.stringify(draft));
+function cachePlanLocally(plan) {
+  const serialized = JSON.stringify(plan);
+  localStorage.setItem(STORAGE_KEYS.currentPlan, serialized);
+  localStorage.setItem(STORAGE_KEYS.legacyPlan, serialized);
+}
+
+function readLocalPlanCache() {
+  try {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.currentPlan) ||
+      localStorage.getItem(STORAGE_KEYS.legacyPlan) ||
+      "null";
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function tryPostJSON(paths, payload) {
+  let lastError = null;
+
+  for (const path of paths) {
+    try {
+      const response = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+
+      if (response.ok) {
+        return data;
+      }
+
+      lastError = new Error(`POST ${path} failed: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Request failed");
+}
+
+async function tryGetJSON(paths, query = {}) {
+  let lastError = null;
+
+  for (const path of paths) {
+    try {
+      const url = new URL(`${API_BASE}${path}`);
+      Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          url.searchParams.set(key, String(value));
+        }
+      });
+
+      const response = await fetch(url.toString(), {
+        method: "GET"
+      });
+
+      const text = await response.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+
+      if (response.ok) {
+        return data;
+      }
+
+      lastError = new Error(`GET ${path} failed: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Request failed");
 }
 
 async function saveCurrentPlan(plan) {
-  const user = getCurrentUser(); // whatever you use
+  cachePlanLocally(plan);
 
-  if (!user || !user.email) {
-    console.error("No user logged in");
-    return;
+  const user = getCurrentUser();
+  if (!user || !user.email) return;
 
-    await fetch("https://fitnessplan-api.cosmowind2013.workers.dev/savePlan", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    email: user.email,
-    plan: plan
-  })
-});
+  try {
+    await tryPostJSON(
+      ["/save-plan", "/savePlan"],
+      {
+        email: user.email,
+        plan
+      }
+    );
+  } catch (error) {
+    console.error("Backend save failed:", error);
+  }
+}
 
-console.log("Plan saved to backend");
+async function loadCurrentPlan() {
+  const user = getCurrentUser();
+
+  if (user && user.email) {
+    try {
+      let data = null;
+
+      try {
+        data = await tryPostJSON(
+          ["/get-plan", "/getPlan"],
+          { email: user.email }
+        );
+      } catch {
+        data = await tryGetJSON(
+          ["/get-plan", "/getPlan"],
+          { email: user.email }
+        );
+      }
+
+      let rawPlan = data?.plan ?? data?.data ?? null;
+
+      if (rawPlan) {
+        if (typeof rawPlan === "string") {
+          rawPlan = JSON.parse(rawPlan);
+        }
+
+        cachePlanLocally(rawPlan);
+        return normalizeLoadedPlan(rawPlan);
+      }
+    } catch (error) {
+      console.error("Backend load failed:", error);
+    }
   }
 
-  await fetch("https://YOUR-WORKER-URL/savePlan", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      email: user.email,
-      plan: plan,
-    }),
-  });
-
-  console.log("Plan saved to backend");
+  return normalizeLoadedPlan(readLocalPlanCache());
 }
+
 function getTrackerKey(planId = "local") {
-  const user = getUser();
-  const userId = user?.email || "guest";
+  const user = getCurrentUser();
+  const userId = (user?.email || "guest").toLowerCase();
   return `${STORAGE_KEYS.trackerPrefix}${userId}_${planId}`;
 }
 
@@ -198,8 +308,8 @@ function saveTracker(planId, tracker) {
 }
 
 function getTodaySelectionKey(planId = "local") {
-  const user = getUser();
-  const userId = user?.email || "guest";
+  const user = getCurrentUser();
+  const userId = (user?.email || "guest").toLowerCase();
   return `fitnessplan_today_selection_${userId}_${planId}`;
 }
 
@@ -213,6 +323,7 @@ function saveSelectedWorkoutId(planId = "local", workoutId = "") {
 
 function getAgeFromDob(dobValue) {
   if (!dobValue) return null;
+
   const dob = new Date(`${dobValue}T12:00:00`);
   if (Number.isNaN(dob.getTime())) return null;
 
@@ -290,33 +401,56 @@ function findVariation(list, value) {
 
 function normalizeFormData(raw) {
   const data = { ...(raw || {}) };
+
+  data.parentConsent = !!data.parentConsent;
   data.focus = unique(Array.isArray(data.focus) ? data.focus : []);
   data.enduranceType = unique(Array.isArray(data.enduranceType) ? data.enduranceType : []);
   data.equipment = unique(Array.isArray(data.equipment) ? data.equipment : []);
   data.strengthGoals = unique(Array.isArray(data.strengthGoals) ? data.strengthGoals : []);
   data.pushSkill = unique(Array.isArray(data.pushSkill) ? data.pushSkill : []);
   data.pullSkill = unique(Array.isArray(data.pullSkill) ? data.pullSkill : []);
-  data.daysPerWeek = toNumber(data.daysPerWeek, 3);
-  data.sessionLength = toNumber(data.sessionLength, 60);
+  data.daysPerWeek = clamp(toNumber(data.daysPerWeek, 3), 3, 5);
+  data.sessionLength = [30, 60, 90].includes(toNumber(data.sessionLength, 60))
+    ? toNumber(data.sessionLength, 60)
+    : 60;
+
   data.pushupMax = toNumber(data.pushupMax, 0);
   data.pullupMax = toNumber(data.pullupMax, 0);
   data.squatMax = toNumber(data.squatMax, 0);
-  data.plankMax = toNumber(data.plankMax, 0);
   data.wallSit = toNumber(data.wallSit, 0);
+  data.plankMax = toNumber(data.plankMax, 0);
   data.pullAssistValue = String(data.pullAssistValue || "").trim();
+  data.pullAssistUnit = data.pullAssistUnit || "lbs";
+  data.mileTime = data.mileTime || data.mile || "";
+  data.runDuration = data.runDuration || "";
+  data.runDistance = data.runDistance || "";
+  data.startDate = data.startDate || toISODate(new Date());
+
   return data;
 }
 
 function normalizeLoadedPlan(plan) {
-  if (!plan || typeof plan !== "object") return null;
+  if (!plan) return null;
 
-  if (!plan.profile && plan.formData) {
-    const legacy = normalizeFormData(plan.formData);
+  let normalized = plan;
+
+  if (typeof normalized === "string") {
+    try {
+      normalized = JSON.parse(normalized);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!normalized || typeof normalized !== "object") return null;
+
+  if (!normalized.profile && normalized.formData) {
+    const legacy = normalizeFormData(normalized.formData);
     const age = getAgeFromDob(legacy.dob);
 
-    plan = {
-      ...plan,
-      createdAt: plan.createdAt || new Date().toISOString(),
+    normalized = {
+      ...normalized,
+      createdAt: normalized.createdAt || new Date().toISOString(),
       profile: {
         dob: legacy.dob || "",
         age,
@@ -332,20 +466,24 @@ function normalizeLoadedPlan(plan) {
         sessionLength: legacy.sessionLength || 60
       },
       records: {
-        mileTime: safeText(legacy.mile, "Not logged yet"),
+        mileTime: safeText(legacy.mileTime, "Not logged yet"),
         longestRun: safeText(legacy.runDuration, "Not logged yet"),
         longestRunDistance: safeText(legacy.runDistance, "Not logged yet"),
-        pushBest: legacy.pushVariation ? `${findVariation(PUSH_VARIATIONS, legacy.pushVariation).name}${legacy.pushupMax ? ` • ${legacy.pushupMax} reps` : ""}` : "Not logged yet",
-        pullBest: legacy.pullVariation ? `${findVariation(PULL_VARIATIONS, legacy.pullVariation).name}${legacy.pullupMax ? ` • ${legacy.pullupMax} reps` : legacy.pullVariation === "assisted" && legacy.pullAssistValue ? ` • ${legacy.pullAssistValue} ${legacy.pullAssistUnit || "lbs"}` : ""}` : "Not logged yet",
-        squatBest: legacy.squatVariation ? `${findVariation(SQUAT_VARIATIONS, legacy.squatVariation).name}${legacy.squatMax ? ` • ${legacy.squatMax} reps` : ""}` : "Not logged yet",
+        pushBest: legacy.pushVariation
+          ? `${findVariation(PUSH_VARIATIONS, legacy.pushVariation).name}${legacy.pushupMax ? ` • ${legacy.pushupMax} reps` : ""}`
+          : "Not logged yet",
+        pullBest: legacy.pullVariation
+          ? `${findVariation(PULL_VARIATIONS, legacy.pullVariation).name}${legacy.pullupMax ? ` • ${legacy.pullupMax} reps` : legacy.pullVariation === "assisted" && legacy.pullAssistValue ? ` • ${legacy.pullAssistValue} ${legacy.pullAssistUnit || "lbs"}` : ""}`
+          : "Not logged yet",
+        squatBest: legacy.squatVariation
+          ? `${findVariation(SQUAT_VARIATIONS, legacy.squatVariation).name}${legacy.squatMax ? ` • ${legacy.squatMax} reps` : ""}`
+          : "Not logged yet",
         plankBest: legacy.plankMax ? `${legacy.plankMax} sec` : "Not logged yet",
         wallSitBest: legacy.wallSit ? `${legacy.wallSit} sec` : "Not logged yet"
       },
-      weeks: Array.isArray(plan.weeks) ? plan.weeks : []
+      weeks: Array.isArray(normalized.weeks) ? normalized.weeks : []
     };
   }
-
-  const normalized = { ...plan };
 
   normalized.profile = {
     dob: "",
@@ -403,15 +541,6 @@ function normalizeLoadedPlan(plan) {
   return normalized;
 }
 
-function getCurrentPlan() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.currentPlan) || localStorage.getItem(STORAGE_KEYS.legacyPlan) || "null";
-    return normalizeLoadedPlan(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
 function hasEquipment(formData, item) {
   return (formData.equipment || []).includes(item);
 }
@@ -424,8 +553,7 @@ function getSessionCaps(age, sessionLength) {
       maxSetsPerExercise: length === 30 ? 2 : 3,
       maxWorkingSets: length === 30 ? 6 : length === 60 ? 9 : 11,
       compoundRest: 90,
-      accessoryRest: 60,
-      hypertrophyRange: [8, 12]
+      accessoryRest: 60
     };
   }
 
@@ -434,8 +562,7 @@ function getSessionCaps(age, sessionLength) {
       maxSetsPerExercise: length === 30 ? 2 : 4,
       maxWorkingSets: length === 30 ? 8 : length === 60 ? 12 : 15,
       compoundRest: 90,
-      accessoryRest: 60,
-      hypertrophyRange: [8, 12]
+      accessoryRest: 60
     };
   }
 
@@ -444,8 +571,7 @@ function getSessionCaps(age, sessionLength) {
       maxSetsPerExercise: 4,
       maxWorkingSets: length === 30 ? 9 : length === 60 ? 14 : 18,
       compoundRest: 90,
-      accessoryRest: 60,
-      hypertrophyRange: [6, 12]
+      accessoryRest: 60
     };
   }
 
@@ -453,8 +579,7 @@ function getSessionCaps(age, sessionLength) {
     maxSetsPerExercise: 5,
     maxWorkingSets: length === 30 ? 10 : length === 60 ? 16 : 20,
     compoundRest: 105,
-    accessoryRest: 60,
-    hypertrophyRange: [6, 12]
+    accessoryRest: 60
   };
 }
 
@@ -470,28 +595,13 @@ function getSafeProgression(list, chosenValue, maxReps, weekOffset = 0) {
   return list[index] || list[0];
 }
 
-function getSupportedPushVariation(formData) {
-  const chosen = formData.pushVariation || "knee";
-  if (chosen === "incline" && !(hasEquipment(formData, "bench") || hasEquipment(formData, "none"))) {
-    return "wall";
-  }
-  if ((chosen === "pike" || chosen === "hspu-wall") && toNumber(formData.pushupMax, 0) < 3) {
-    return "knee";
-  }
-  return chosen;
-}
-
-function getPullFallbackProfile(formData) {
-  if (hasEquipment(formData, "pullup-bar")) return { mode: "bar" };
-  if (hasEquipment(formData, "bands")) return { mode: "bands" };
-  return { mode: "floor" };
-}
-
 function getWorkoutSlots(formData, week = 1) {
   const days = toNumber(formData.daysPerWeek, 3);
   const focus = formData.focus || [];
   const strengthGoals = formData.strengthGoals || [];
-  const enduranceTypes = (formData.enduranceType || []).length ? formData.enduranceType : ["running"];
+  const enduranceTypes = (formData.enduranceType || []).length
+    ? formData.enduranceType
+    : ["running"];
 
   const slots = [];
   const wantsStrength = focus.includes("strength") || strengthGoals.length > 0;
@@ -538,6 +648,7 @@ function getWorkoutSlots(formData, week = 1) {
 
   const trimmed = [];
   let idx = 0;
+
   while (trimmed.length < days) {
     trimmed.push({ ...slots[idx % slots.length] });
     idx += 1;
@@ -547,26 +658,26 @@ function getWorkoutSlots(formData, week = 1) {
 }
 
 function makeWarmup(slot, age) {
-  const enduranceWarmup = [
-    { text: "Easy movement", targetType: "minutes", target: 4, note: "Build gradually." },
-    { text: "Joint prep", targetType: "reps", target: 8, note: "Keep it smooth." },
-    { text: "Short build-ups", targetType: "reps", target: 2, note: "Only if form feels good." }
-  ];
+  if (slot.kind === "endurance") {
+    return [
+      { text: "Easy movement", targetType: "minutes", target: 4, note: "Build gradually." },
+      { text: "Joint prep", targetType: "reps", target: 8, note: "Keep it smooth." },
+      { text: "Short build-ups", targetType: "reps", target: 2, note: "Only if form feels good." }
+    ];
+  }
 
-  const strengthWarmup = [
+  if (slot.kind === "mobility") {
+    return [
+      { text: "Easy walk or march", targetType: "minutes", target: 3, note: "Relax into movement." },
+      { text: "Gentle circles", targetType: "reps", target: 8, note: "No forcing range." }
+    ];
+  }
+
+  return [
     { text: "Easy movement", targetType: "minutes", target: 3, note: "Wake up the body." },
     { text: "Prep mobility", targetType: "reps", target: age <= 12 ? 6 : 8, note: "Controlled range." },
     { text: "Movement rehearsal", targetType: "reps", target: 6, note: "Practice clean form." }
   ];
-
-  const mobilityWarmup = [
-    { text: "Easy walk or march", targetType: "minutes", target: 3, note: "Relax into movement." },
-    { text: "Gentle circles", targetType: "reps", target: 8, note: "No forcing range." }
-  ];
-
-  if (slot.kind === "endurance") return enduranceWarmup;
-  if (slot.kind === "mobility") return mobilityWarmup;
-  return strengthWarmup;
 }
 
 function makeCooldown(slot) {
@@ -592,7 +703,20 @@ function makeCooldown(slot) {
   ];
 }
 
-function buildExercise({ id, name, category, targetType, targets, tempo, rest, loadMode = "normal", goalLoadText = "", note = "", progressionText = "", test = false, tags = [] }) {
+function buildExercise({
+  id,
+  name,
+  category,
+  targetType,
+  targets,
+  tempo,
+  rest,
+  loadMode = "normal",
+  goalLoadText = "",
+  note = "",
+  progressionText = "",
+  tags = []
+}) {
   return {
     id,
     name,
@@ -605,7 +729,6 @@ function buildExercise({ id, name, category, targetType, targets, tempo, rest, l
     goalLoadText,
     note,
     progressionText,
-    test,
     tags
   };
 }
@@ -613,7 +736,7 @@ function buildExercise({ id, name, category, targetType, targets, tempo, rest, l
 function getPushExercise(formData, week, isDeload, caps) {
   const chosen = getSafeProgression(
     PUSH_VARIATIONS,
-    getSupportedPushVariation(formData),
+    formData.pushVariation || "knee",
     formData.pushupMax || 0,
     isDeload ? 0 : week > 2 ? 1 : 0
   );
@@ -627,7 +750,9 @@ function getPushExercise(formData, week, isDeload, caps) {
       name: "Front Plank Hold",
       category: "push",
       targetType: "seconds",
-      targets: Array.from({ length: Math.max(2, sets - 1) }, () => clamp(20 + ((week - 1) * 5), 15, Math.max(30, formData.plankMax || 45))),
+      targets: Array.from({ length: Math.max(2, sets - 1) }, () =>
+        clamp(20 + ((week - 1) * 5), 15, Math.max(30, formData.plankMax || 45))
+      ),
       tempo: "Brace hard and stay still",
       rest: `${caps.accessoryRest}s`,
       goalLoadText: "Normal bodyweight. Quality over time.",
@@ -642,7 +767,11 @@ function getPushExercise(formData, week, isDeload, caps) {
     const prescribed = clamp(safeTop + (week > 2 && !isDeload ? 1 : 0), 1, max);
     targets = Array.from({ length: sets }, () => prescribed);
   } else {
-    targets = Array.from({ length: sets }, () => (chosen.value === "knee" ? 5 : chosen.value === "incline" ? 6 : 4));
+    targets = Array.from({ length: sets }, () => {
+      if (chosen.value === "knee") return 5;
+      if (chosen.value === "incline") return 6;
+      return 4;
+    });
   }
 
   return buildExercise({
@@ -651,7 +780,9 @@ function getPushExercise(formData, week, isDeload, caps) {
     category: "push",
     targetType: "reps",
     targets,
-    tempo: chosen.value === "pike" || chosen.value === "hspu-wall" ? "3 sec down, light pause, drive up" : "2 sec down, light pause, controlled up",
+    tempo: chosen.value === "pike" || chosen.value === "hspu-wall"
+      ? "3 sec down, light pause, drive up"
+      : "2 sec down, light pause, controlled up",
     rest: `${caps.compoundRest}s`,
     goalLoadText: "Normal bodyweight. Prioritize clean reps.",
     note: "Stay 1 to 3 reps away from failure.",
@@ -660,10 +791,11 @@ function getPushExercise(formData, week, isDeload, caps) {
 }
 
 function getPullExercise(formData, week, isDeload, caps) {
-  const equipmentProfile = getPullFallbackProfile(formData);
+  const hasBar = hasEquipment(formData, "pullup-bar");
+  const hasBands = hasEquipment(formData, "bands");
   const chosen = getSafeProgression(
     PULL_VARIATIONS,
-    formData.pullVariation || "assisted",
+    formData.pullVariation || (hasBar ? "assisted" : "none"),
     formData.pullupMax || 0,
     isDeload ? 0 : week > 2 ? 1 : 0
   );
@@ -671,18 +803,13 @@ function getPullExercise(formData, week, isDeload, caps) {
   const max = toNumber(formData.pullupMax, 0);
   const sets = clamp(isDeload ? 2 : Math.min(3, caps.maxSetsPerExercise), 1, caps.maxSetsPerExercise);
 
-  if (equipmentProfile.mode === "floor") {
-    const rowTargets = Array.from({ length: sets }, () => {
-      if (max > 0) return clamp(Math.max(3, Math.floor(max * (isDeload ? 0.55 : 0.7))), 3, Math.max(4, max));
-      return isDeload ? 5 : 6 + Math.min(week - 1, 2);
-    });
-
+  if (!hasBar && !hasBands) {
     return buildExercise({
       id: `pull-${week}`,
       name: "Back Widows",
       category: "pull",
       targetType: "reps",
-      targets: rowTargets,
+      targets: Array.from({ length: sets }, () => (isDeload ? 5 : 6 + Math.min(week - 1, 2))),
       tempo: "Pull smooth, squeeze, lower under control",
       rest: `${caps.compoundRest}s`,
       goalLoadText: "Normal bodyweight. This replaces hanging work because no pull-up setup was selected.",
@@ -696,13 +823,10 @@ function getPullExercise(formData, week, isDeload, caps) {
   let loadMode = chosen.defaultLoadMode || "normal";
   let goalLoadText = "Normal bodyweight. Clean range first.";
 
-  if (equipmentProfile.mode === "bands" && !["assisted", "negatives", "dead-hang", "active-hang"].includes(chosen.value)) {
-    loadMode = "assistance";
-    goalLoadText = "Assistance mode. Use bands to hit all clean reps.";
-  }
-
   if (chosen.value === "assisted") {
-    const assistText = formData.pullAssistValue ? `${formData.pullAssistValue} ${formData.pullAssistUnit || "lbs"} assistance` : "Use enough assistance to hit all clean reps";
+    const assistText = formData.pullAssistValue
+      ? `${formData.pullAssistValue} ${formData.pullAssistUnit || "lbs"} assistance`
+      : "Use enough assistance to hit all clean reps";
     goalLoadText = `Assistance mode. ${assistText}.`;
   }
 
@@ -720,12 +844,17 @@ function getPullExercise(formData, week, isDeload, caps) {
     const prescribed = clamp(safeTop + (week > 2 && !isDeload ? 1 : 0), 1, max);
     targets = Array.from({ length: sets }, () => prescribed);
   } else {
-    targets = Array.from({ length: sets }, () => (chosen.value === "negatives" ? 3 : chosen.value === "assisted" ? 4 : 3));
+    targets = Array.from({ length: sets }, () => {
+      if (chosen.value === "negatives") return 3;
+      if (chosen.value === "assisted") return 4;
+      return 3;
+    });
   }
 
-  const effectiveName = equipmentProfile.mode === "bands" && chosen.value === "assisted"
-    ? "Band-Assisted Pull-ups"
-    : chosen.name;
+  const effectiveName =
+    chosen.value === "assisted" && hasBands
+      ? "Band-Assisted Pull-ups"
+      : chosen.name;
 
   return buildExercise({
     id: `pull-${week}`,
@@ -733,12 +862,18 @@ function getPullExercise(formData, week, isDeload, caps) {
     category: "pull",
     targetType,
     targets,
-    tempo: chosen.value === "negatives" ? "Jump up, 4 sec lower" : targetType === "seconds" ? "Still body, strong grip" : "Pull smooth, lower under control",
+    tempo: chosen.value === "negatives"
+      ? "Jump up, 4 sec lower"
+      : targetType === "seconds"
+        ? "Still body, strong grip"
+        : "Pull smooth, lower under control",
     rest: `${caps.compoundRest}s`,
     loadMode,
     goalLoadText,
     note: "Stop before form breaks.",
-    progressionText: chosen.value === "assisted" ? "Use less assistance only after all reps are clean." : "Progress only when every rep stays clean."
+    progressionText: chosen.value === "assisted"
+      ? "Use less assistance only after all reps are clean."
+      : "Progress only when every rep stays clean."
   });
 }
 
@@ -753,11 +888,13 @@ function getLegExercise(formData, week, isDeload, caps) {
   const max = toNumber(formData.squatMax, 0);
   const sets = clamp(isDeload ? 2 : Math.min(4, caps.maxSetsPerExercise), 1, caps.maxSetsPerExercise);
   const weighted = hasEquipment(formData, "dumbbells") || hasEquipment(formData, "bench");
-  const name = weighted && ["regular", "split", "bulgarian"].includes(chosen.value)
-    ? chosen.value === "split"
-      ? "Loaded Split Squats"
-      : "Goblet Squats"
-    : chosen.name;
+
+  const name =
+    weighted && ["regular", "split", "bulgarian"].includes(chosen.value)
+      ? chosen.value === "split"
+        ? "Loaded Split Squats"
+        : "Goblet Squats"
+      : chosen.name;
 
   let targets = [];
   if (max > 0) {
@@ -777,7 +914,9 @@ function getLegExercise(formData, week, isDeload, caps) {
     tempo: "3 sec down, light pause, strong stand",
     rest: `${caps.compoundRest}s`,
     loadMode: weighted ? "load" : "normal",
-    goalLoadText: weighted ? "Added load mode. Keep the range clean." : "Normal bodyweight. Build clean depth first.",
+    goalLoadText: weighted
+      ? "Added load mode. Keep the range clean."
+      : "Normal bodyweight. Build clean depth first.",
     note: "Do not grind. Stay smooth and upright.",
     progressionText: "Add reps before load when possible."
   });
@@ -786,7 +925,11 @@ function getLegExercise(formData, week, isDeload, caps) {
 function getCoreExercise(formData, week, isDeload, caps) {
   const sets = Math.max(2, Math.min(3, caps.maxSetsPerExercise));
   const plankBase = clamp(toNumber(formData.plankMax, 30), 10, 300);
-  const target = clamp(Math.floor(plankBase * (isDeload ? 0.65 : 0.8)) + ((week - 1) * (isDeload ? 0 : 4)), 12, plankBase);
+  const target = clamp(
+    Math.floor(plankBase * (isDeload ? 0.65 : 0.8)) + ((week - 1) * (isDeload ? 0 : 4)),
+    12,
+    plankBase
+  );
 
   return buildExercise({
     id: `core-${week}`,
@@ -807,13 +950,9 @@ function trimWorkingSets(exercises, maxWorkingSets) {
 
   return exercises
     .map((exercise) => {
-      if (exercise.targetType === "minutes" || exercise.targetType === "seconds" && exercise.category === "core") {
-        used += exercise.targets.length;
-        return exercise;
-      }
-
-      const available = Math.max(1, maxWorkingSets - used);
-      const limitedTargets = (exercise.targets || []).slice(0, available);
+      const desired = (exercise.targets || []).length;
+      const remaining = Math.max(1, maxWorkingSets - used);
+      const limitedTargets = (exercise.targets || []).slice(0, remaining);
       used += limitedTargets.length;
       return { ...exercise, targets: limitedTargets };
     })
@@ -825,10 +964,15 @@ function getEnduranceWorkout(formData, slot, week, isDeload) {
   const type = rawType.replace("-variation", "");
   const label = titleCase(type);
   const isVariation = rawType.includes("-variation");
-  const baseDuration = Math.max(10, parseFirstNumber(formData.runDuration || "") || 20);
-  const adjustedDuration = clamp(Math.round(baseDuration * (isDeload ? 0.7 : isVariation ? 0.8 : 1 + ((week - 1) * 0.08))), 10, 90);
 
-  const warmup = makeWarmup(slot, formData.age);
+  const baseDuration = Math.max(10, parseFirstNumber(formData.runDuration || "") || 20);
+  const adjustedDuration = clamp(
+    Math.round(baseDuration * (isDeload ? 0.7 : isVariation ? 0.8 : 1 + ((week - 1) * 0.08))),
+    10,
+    90
+  );
+
+  const warmup = makeWarmup(slot, formData.age || 18);
   const cooldown = makeCooldown(slot);
 
   const mainExercise = buildExercise({
@@ -839,8 +983,12 @@ function getEnduranceWorkout(formData, slot, week, isDeload) {
     targets: [adjustedDuration],
     tempo: isVariation ? "Comfortably hard, controlled effort" : "Aerobic conversational pace",
     rest: isVariation ? "30 to 60s between repeats if needed" : "Steady continuous effort",
-    goalLoadText: isVariation ? "Stay repeatable. Do not sprint every rep." : "Stay smooth and sustainable.",
-    note: type === "running" ? "Log distance covered or total time." : `Log total ${type} work completed.`,
+    goalLoadText: isVariation
+      ? "Stay repeatable. Do not sprint every rep."
+      : "Stay smooth and sustainable.",
+    note: type === "running"
+      ? "Log distance covered or total time."
+      : `Log total ${type} work completed.`,
     progressionText: "Increase duration gradually. Do not jump both pace and volume."
   });
 
@@ -854,7 +1002,7 @@ function getEnduranceWorkout(formData, slot, week, isDeload) {
 }
 
 function buildStrengthWorkout(formData, slot, week, isDeload, caps) {
-  const warmup = makeWarmup(slot, formData.age);
+  const warmup = makeWarmup(slot, formData.age || 18);
   const cooldown = makeCooldown(slot);
   const exercises = [];
 
@@ -886,6 +1034,7 @@ function buildStrengthWorkout(formData, slot, week, isDeload, caps) {
 function buildMobilityWorkout(slot) {
   const warmup = makeWarmup(slot, 18);
   const cooldown = makeCooldown(slot);
+
   const exercises = [
     buildExercise({
       id: "mobility-flow",
@@ -910,46 +1059,46 @@ function buildMobilityWorkout(slot) {
   };
 }
 
-function buildPlan(formData) {
-  const normalizedForm = normalizeFormData(formData);
-  const age = getAgeFromDob(normalizedForm.dob);
-  normalizedForm.age = age;
+function buildPlan(rawFormData) {
+  const formData = normalizeFormData(rawFormData);
+  const age = getAgeFromDob(formData.dob);
+  formData.age = age;
 
-  const caps = getSessionCaps(age || 18, normalizedForm.sessionLength);
-  const startDate = normalizedForm.startDate || toISODate(new Date());
+  const caps = getSessionCaps(age || 18, formData.sessionLength);
+  const startDate = formData.startDate || toISODate(new Date());
 
   const records = {
-    mileTime: safeText(normalizedForm.mile, "Not logged yet"),
-    longestRun: safeText(normalizedForm.runDuration, "Not logged yet"),
-    longestRunDistance: safeText(normalizedForm.runDistance, "Not logged yet"),
-    pushBest: normalizedForm.pushVariation && normalizedForm.pushVariation !== "none"
-      ? `${findVariation(PUSH_VARIATIONS, normalizedForm.pushVariation).name}${normalizedForm.pushupMax ? ` • ${normalizedForm.pushupMax} reps` : ""}`
+    mileTime: safeText(formData.mileTime, "Not logged yet"),
+    longestRun: safeText(formData.runDuration, "Not logged yet"),
+    longestRunDistance: safeText(formData.runDistance, "Not logged yet"),
+    pushBest: formData.pushVariation && formData.pushVariation !== "none"
+      ? `${findVariation(PUSH_VARIATIONS, formData.pushVariation).name}${formData.pushupMax ? ` • ${formData.pushupMax} reps` : ""}`
       : "Not logged yet",
-    pullBest: normalizedForm.pullVariation && normalizedForm.pullVariation !== "none"
-      ? `${findVariation(PULL_VARIATIONS, normalizedForm.pullVariation).name}${normalizedForm.pullupMax ? ` • ${normalizedForm.pullupMax} reps` : normalizedForm.pullVariation === "assisted" && normalizedForm.pullAssistValue ? ` • ${normalizedForm.pullAssistValue} ${normalizedForm.pullAssistUnit || "lbs"}` : ""}`
+    pullBest: formData.pullVariation && formData.pullVariation !== "none"
+      ? `${findVariation(PULL_VARIATIONS, formData.pullVariation).name}${formData.pullupMax ? ` • ${formData.pullupMax} reps` : formData.pullVariation === "assisted" && formData.pullAssistValue ? ` • ${formData.pullAssistValue} ${formData.pullAssistUnit || "lbs"}` : ""}`
       : "Not logged yet",
-    squatBest: normalizedForm.squatVariation && normalizedForm.squatVariation !== "none"
-      ? `${findVariation(SQUAT_VARIATIONS, normalizedForm.squatVariation).name}${normalizedForm.squatMax ? ` • ${normalizedForm.squatMax} reps` : ""}`
+    squatBest: formData.squatVariation && formData.squatVariation !== "none"
+      ? `${findVariation(SQUAT_VARIATIONS, formData.squatVariation).name}${formData.squatMax ? ` • ${formData.squatMax} reps` : ""}`
       : "Not logged yet",
-    plankBest: normalizedForm.plankMax ? `${normalizedForm.plankMax} sec` : "Not logged yet",
-    wallSitBest: normalizedForm.wallSit ? `${normalizedForm.wallSit} sec` : "Not logged yet"
+    plankBest: formData.plankMax ? `${formData.plankMax} sec` : "Not logged yet",
+    wallSitBest: formData.wallSit ? `${formData.wallSit} sec` : "Not logged yet"
   };
 
   const weeks = [];
 
   for (let week = 1; week <= 4; week += 1) {
     const isDeload = week === 4;
-    const slots = getWorkoutSlots(normalizedForm, week);
+    const slots = getWorkoutSlots(formData, week);
 
     const workouts = slots.map((slot, index) => {
       const label = String.fromCharCode(65 + index);
       const date = toISODate(addDays(new Date(`${startDate}T12:00:00`), ((week - 1) * 7) + index));
 
       const built = slot.kind === "endurance"
-        ? getEnduranceWorkout(normalizedForm, slot, week, isDeload, caps)
+        ? getEnduranceWorkout(formData, slot, week, isDeload)
         : slot.kind === "mobility"
           ? buildMobilityWorkout(slot)
-          : buildStrengthWorkout(normalizedForm, slot, week, isDeload, caps);
+          : buildStrengthWorkout(formData, slot, week, isDeload, caps);
 
       return {
         id: `week-${week}-day-${label}`,
@@ -959,7 +1108,7 @@ function buildPlan(formData) {
         date,
         dateLabel: formatDateLabel(date),
         description: built.description,
-        duration: toNumber(normalizedForm.sessionLength, 60),
+        duration: toNumber(formData.sessionLength, 60),
         warmup: built.warmup,
         exercises: built.exercises,
         cooldown: built.cooldown,
@@ -971,27 +1120,31 @@ function buildPlan(formData) {
     weeks.push({
       week,
       label: `Week ${week}`,
-      note: isDeload ? "Deload week. Reduced stress to protect recovery." : week === 3 ? "Highest training week before deload." : "Build week.",
+      note: isDeload
+        ? "Deload week. Reduced stress to protect recovery."
+        : week === 3
+          ? "Highest training week before deload."
+          : "Build week.",
       workouts
     });
   }
 
   return {
-    version: 3,
+    version: 4,
     createdAt: new Date().toISOString(),
     profile: {
-      dob: normalizedForm.dob,
+      dob: formData.dob,
       age,
       ageBand: getAgeBand(age),
       safetyMode: getSafetyMode(age || 18),
-      focus: normalizedForm.focus || [],
-      enduranceType: normalizedForm.enduranceType || [],
-      equipment: normalizedForm.equipment || [],
-      strengthGoals: normalizedForm.strengthGoals || [],
-      pushSkill: normalizedForm.pushSkill || [],
-      pullSkill: normalizedForm.pullSkill || [],
-      daysPerWeek: toNumber(normalizedForm.daysPerWeek, 3),
-      sessionLength: toNumber(normalizedForm.sessionLength, 60)
+      focus: formData.focus || [],
+      enduranceType: formData.enduranceType || [],
+      equipment: formData.equipment || [],
+      strengthGoals: formData.strengthGoals || [],
+      pushSkill: formData.pushSkill || [],
+      pullSkill: formData.pullSkill || [],
+      daysPerWeek: toNumber(formData.daysPerWeek, 3),
+      sessionLength: toNumber(formData.sessionLength, 60)
     },
     records,
     weeks
@@ -1037,38 +1190,94 @@ function initPlanner() {
 
   function getVisibleSteps() {
     return allSteps.filter((step) => {
-      if (step === "endurance-type") return formData.focus.includes("endurance") || formData.focus.includes("cardio");
-      if (step === "strength-goals") return formData.focus.includes("strength");
-      if (step === "push-skill") return formData.strengthGoals.includes("push");
-      if (step === "pull-skill") return formData.strengthGoals.includes("pull");
-      if (step === "push-variation") return formData.strengthGoals.includes("push") || formData.focus.includes("strength");
-      if (step === "push-max") return (formData.strengthGoals.includes("push") || formData.focus.includes("strength")) && formData.pushVariation && !["none", "plank"].includes(formData.pushVariation);
-      if (step === "pull-variation") return formData.strengthGoals.includes("pull") || formData.focus.includes("strength");
-      if (step === "pull-assist") return formData.pullVariation === "assisted";
-      if (step === "pull-max") return (formData.strengthGoals.includes("pull") || formData.focus.includes("strength")) && formData.pullVariation && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation);
-      if (step === "squat-variation") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
-      if (step === "squat-max") return (formData.strengthGoals.includes("squat") || formData.focus.includes("strength")) && formData.squatVariation && formData.squatVariation !== "none";
-      if (step === "wall-sit") return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
-      if (step === "mile" || step === "run-duration" || step === "run-distance") return formData.focus.includes("endurance") || formData.focus.includes("cardio");
+      if (step === "endurance-type") {
+        return formData.focus.includes("endurance") || formData.focus.includes("cardio");
+      }
+
+      if (step === "strength-goals") {
+        return formData.focus.includes("strength");
+      }
+
+      if (step === "push-skill") {
+        return formData.strengthGoals.includes("push");
+      }
+
+      if (step === "pull-skill") {
+        return formData.strengthGoals.includes("pull");
+      }
+
+      if (step === "push-variation") {
+        return formData.strengthGoals.includes("push") || formData.focus.includes("strength");
+      }
+
+      if (step === "push-max") {
+        return (formData.strengthGoals.includes("push") || formData.focus.includes("strength"))
+          && formData.pushVariation
+          && !["none", "plank"].includes(formData.pushVariation);
+      }
+
+      if (step === "pull-variation") {
+        return formData.strengthGoals.includes("pull") || formData.focus.includes("strength");
+      }
+
+      if (step === "pull-assist") {
+        return formData.pullVariation === "assisted";
+      }
+
+      if (step === "pull-max") {
+        return (formData.strengthGoals.includes("pull") || formData.focus.includes("strength"))
+          && formData.pullVariation
+          && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation);
+      }
+
+      if (step === "squat-variation") {
+        return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
+      }
+
+      if (step === "squat-max") {
+        return (formData.strengthGoals.includes("squat") || formData.focus.includes("strength"))
+          && formData.squatVariation
+          && formData.squatVariation !== "none";
+      }
+
+      if (step === "wall-sit") {
+        return formData.strengthGoals.includes("squat") || formData.focus.includes("strength");
+      }
+
+      if (step === "plank") {
+        return formData.focus.includes("strength") || formData.strengthGoals.length > 0;
+      }
+
+      if (step === "mile" || step === "run-duration" || step === "run-distance") {
+        return formData.focus.includes("endurance") || formData.focus.includes("cardio");
+      }
+
       return true;
     });
   }
 
   function syncFromInputs() {
     formData.dob = byId("dob")?.value || formData.dob || "";
+    formData.parentConsent = !!byId("parent-consent")?.checked;
+
     formData.daysPerWeek = toNumber(byId("daysPerWeek")?.value, formData.daysPerWeek || 3);
     formData.sessionLength = toNumber(byId("sessionLength")?.value, formData.sessionLength || 60);
+
     formData.pushVariation = byId("pushVariation")?.value || formData.pushVariation || "";
     formData.pushupMax = toNumber(byId("pushupMax")?.value, formData.pushupMax || 0);
+
     formData.pullVariation = byId("pullVariation")?.value || formData.pullVariation || "";
     formData.pullAssistValue = String(byId("pullAssistValue")?.value || formData.pullAssistValue || "").trim();
     formData.pullAssistUnit = byId("pullAssistUnit")?.value || formData.pullAssistUnit || "lbs";
     formData.pullupMax = toNumber(byId("pullupMax")?.value, formData.pullupMax || 0);
+
     formData.squatVariation = byId("squatVariation")?.value || formData.squatVariation || "";
     formData.squatMax = toNumber(byId("squatMax")?.value, formData.squatMax || 0);
+
     formData.wallSit = toNumber(byId("wallSit")?.value, formData.wallSit || 0);
     formData.plankMax = toNumber(byId("plankMax")?.value, formData.plankMax || 0);
-    formData.mile = byId("mileTime")?.value?.trim() || formData.mile || "";
+
+    formData.mileTime = byId("mileTime")?.value?.trim() || formData.mileTime || "";
 
     const durationValue = byId("longestRunDurationValue")?.value?.trim() || "";
     const durationUnit = byId("longestRunDurationUnit")?.value || "minutes";
@@ -1084,32 +1293,63 @@ function initPlanner() {
 
   function applyDraftToInputs() {
     if (byId("dob")) byId("dob").value = formData.dob || "";
+    if (byId("parent-consent")) byId("parent-consent").checked = !!formData.parentConsent;
+
     if (byId("daysPerWeek")) byId("daysPerWeek").value = String(formData.daysPerWeek || 3);
     if (byId("sessionLength")) byId("sessionLength").value = String(formData.sessionLength || 60);
+
     if (byId("pushVariation")) byId("pushVariation").value = formData.pushVariation || "none";
     if (byId("pushupMax")) byId("pushupMax").value = formData.pushupMax || "";
+
     if (byId("pullVariation")) byId("pullVariation").value = formData.pullVariation || "none";
     if (byId("pullAssistValue")) byId("pullAssistValue").value = formData.pullAssistValue || "";
     if (byId("pullAssistUnit")) byId("pullAssistUnit").value = formData.pullAssistUnit || "lbs";
     if (byId("pullupMax")) byId("pullupMax").value = formData.pullupMax || "";
+
     if (byId("squatVariation")) byId("squatVariation").value = formData.squatVariation || "none";
     if (byId("squatMax")) byId("squatMax").value = formData.squatMax || "";
+
     if (byId("wallSit")) byId("wallSit").value = formData.wallSit || "";
     if (byId("plankMax")) byId("plankMax").value = formData.plankMax || "";
-    if (byId("mileTime")) byId("mileTime").value = formData.mile || "";
+    if (byId("mileTime")) byId("mileTime").value = formData.mileTime || "";
 
     if (byId("longestRunDurationValue")) byId("longestRunDurationValue").value = parseFirstNumber(formData.runDuration) || "";
-    if (byId("longestRunDurationUnit")) byId("longestRunDurationUnit").value = String(formData.runDuration || "").includes("hour") ? "hours" : "minutes";
+    if (byId("longestRunDurationUnit")) {
+      const durationText = String(formData.runDuration || "").toLowerCase();
+      byId("longestRunDurationUnit").value = durationText.includes("hour") ? "hours" : "minutes";
+    }
+
     if (byId("longestRunDistanceValue")) byId("longestRunDistanceValue").value = parseFirstNumber(formData.runDistance) || "";
-    if (byId("longestRunDistanceUnit")) byId("longestRunDistanceUnit").value = String(formData.runDistance || "").toLowerCase().includes("km") ? "km" : "miles";
+    if (byId("longestRunDistanceUnit")) {
+      const distanceText = String(formData.runDistance || "").toLowerCase();
+      byId("longestRunDistanceUnit").value = distanceText.includes("km") ? "km" : "miles";
+    }
+
     if (byId("startDate")) byId("startDate").value = formData.startDate || toISODate(new Date());
 
-    qsa("[data-focus]").forEach((btn) => btn.classList.toggle("active", formData.focus.includes(btn.dataset.focus)));
-    qsa("[data-type]").forEach((btn) => btn.classList.toggle("active", formData.enduranceType.includes(btn.dataset.type)));
-    qsa("[data-equip]").forEach((btn) => btn.classList.toggle("active", formData.equipment.includes(btn.dataset.equip)));
-    qsa("[data-goal]").forEach((btn) => btn.classList.toggle("active", formData.strengthGoals.includes(btn.dataset.goal)));
-    qsa("#step-push-skill .tile-btn").forEach((btn) => btn.classList.toggle("active", formData.pushSkill.includes(btn.dataset.skill)));
-    qsa("#step-pull-skill .tile-btn").forEach((btn) => btn.classList.toggle("active", formData.pullSkill.includes(btn.dataset.skill)));
+    qsa("[data-focus]").forEach((btn) => {
+      btn.classList.toggle("active", formData.focus.includes(btn.dataset.focus));
+    });
+
+    qsa("[data-type]").forEach((btn) => {
+      btn.classList.toggle("active", formData.enduranceType.includes(btn.dataset.type));
+    });
+
+    qsa("[data-equip]").forEach((btn) => {
+      btn.classList.toggle("active", formData.equipment.includes(btn.dataset.equip));
+    });
+
+    qsa("[data-goal]").forEach((btn) => {
+      btn.classList.toggle("active", formData.strengthGoals.includes(btn.dataset.goal));
+    });
+
+    qsa("#step-push-skill .tile-btn").forEach((btn) => {
+      btn.classList.toggle("active", formData.pushSkill.includes(btn.dataset.skill));
+    });
+
+    qsa("#step-pull-skill .tile-btn").forEach((btn) => {
+      btn.classList.toggle("active", formData.pullSkill.includes(btn.dataset.skill));
+    });
   }
 
   function updateAgePanels() {
@@ -1134,10 +1374,15 @@ function initPlanner() {
 
     if (age < 9) {
       countdownMessage.classList.remove("hidden");
+
       const dob = new Date(`${dobValue}T12:00:00`);
       const ninth = new Date(dob);
       ninth.setFullYear(dob.getFullYear() + 9);
-      const diffDays = Math.max(0, Math.ceil((ninth.getTime() - Date.now()) / 86400000));
+
+      const diffDays = Math.max(
+        0,
+        Math.ceil((ninth.getTime() - Date.now()) / 86400000)
+      );
 
       if (countdownTimer) {
         countdownTimer.textContent =
@@ -1145,6 +1390,7 @@ function initPlanner() {
             ? `${Math.floor(diffDays / 365)} years and ${diffDays % 365} days to go`
             : `${diffDays} days to go`;
       }
+
       return;
     }
 
@@ -1153,20 +1399,36 @@ function initPlanner() {
     }
   }
 
-  function handleTileGroup(selector, key, limit = 99) {
+  function toggleArrayValue(key, value, limit = 99) {
+    const current = new Set(formData[key] || []);
+
+    if (limit === 1) {
+      formData[key] = [value];
+      return;
+    }
+
+    if (current.has(value)) {
+      current.delete(value);
+    } else if (current.size < limit) {
+      current.add(value);
+    }
+
+    formData[key] = [...current];
+  }
+
+  function bindTileGroup(selector, key, limit = 99) {
     qsa(selector).forEach((btn) => {
       btn.addEventListener("click", () => {
-        const value = btn.dataset.focus || btn.dataset.type || btn.dataset.equip || btn.dataset.goal || btn.dataset.skill;
+        const value =
+          btn.dataset.focus ||
+          btn.dataset.type ||
+          btn.dataset.equip ||
+          btn.dataset.goal ||
+          btn.dataset.skill;
+
         if (!value) return;
 
-        if (limit === 1) {
-          formData[key] = [value];
-        } else {
-          const current = new Set(formData[key] || []);
-          if (current.has(value)) current.delete(value);
-          else if (current.size < limit) current.add(value);
-          formData[key] = [...current];
-        }
+        toggleArrayValue(key, value, limit);
 
         if (key === "focus" && !formData.focus.includes("endurance") && !formData.focus.includes("cardio")) {
           formData.enduranceType = [];
@@ -1177,6 +1439,7 @@ function initPlanner() {
           if (!formData.strengthGoals.includes("pull")) formData.pullSkill = [];
         }
 
+        formData = normalizeFormData(formData);
         applyDraftToInputs();
         savePlannerDraft(formData);
         renderSummaryAndPreview();
@@ -1200,22 +1463,62 @@ function initPlanner() {
       const age = getAgeFromDob(formData.dob);
       if (age === null) return fail("Enter a real date of birth.");
       if (age < 9) return fail("Training starts at age 9.");
-      if (age < 13 && !byId("parent-consent")?.checked) return fail("A parent or guardian needs to confirm supervision.");
+      if (age < 13 && !formData.parentConsent) return fail("A parent or guardian needs to confirm supervision.");
     }
 
-    if (stepId === "focus" && formData.focus.length === 0) return fail("Pick at least 1 focus.");
-    if (stepId === "endurance-type" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && formData.enduranceType.length === 0) return fail("Pick at least 1 endurance type.");
-    if (stepId === "equipment" && formData.equipment.length === 0) return fail("Pick your equipment or choose bodyweight only.");
-    if (stepId === "strength-goals" && formData.focus.includes("strength") && formData.strengthGoals.length === 0) return fail("Pick at least 1 strength goal.");
-    if (stepId === "push-max" && formData.pushVariation && !["none", "plank"].includes(formData.pushVariation) && formData.pushupMax <= 0) return fail("Enter your max clean reps.");
-    if (stepId === "pull-assist" && formData.pullVariation === "assisted" && !String(formData.pullAssistValue).trim()) return fail("Enter your amount of assistance.");
-    if (stepId === "pull-max" && formData.pullVariation && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation) && formData.pullupMax <= 0) return fail("Enter your max clean reps.");
-    if (stepId === "squat-max" && formData.squatVariation && formData.squatVariation !== "none" && formData.squatMax <= 0) return fail("Enter your max clean reps.");
-    if (stepId === "plank" && formData.plankMax <= 0) return fail("Enter your best plank hold.");
-    if (stepId === "mile" && (formData.focus.includes("endurance") || formData.focus.includes("cardio"))) {
-      if (!formData.mile || parseTimeToSeconds(formData.mile) === null) return fail("Enter your mile time like 8:05.");
+    if (stepId === "focus" && formData.focus.length === 0) {
+      return fail("Pick at least 1 focus.");
     }
-    if (stepId === "start-date" && !formData.startDate) return fail("Pick a start date.");
+
+    if (stepId === "endurance-type" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && formData.enduranceType.length === 0) {
+      return fail("Pick at least 1 endurance type.");
+    }
+
+    if (stepId === "equipment" && formData.equipment.length === 0) {
+      return fail("Pick your equipment or choose bodyweight only.");
+    }
+
+    if (stepId === "strength-goals" && formData.focus.includes("strength") && formData.strengthGoals.length === 0) {
+      return fail("Pick at least 1 strength goal.");
+    }
+
+    if (stepId === "push-max" && formData.pushVariation && !["none", "plank"].includes(formData.pushVariation) && formData.pushupMax <= 0) {
+      return fail("Enter your max clean reps.");
+    }
+
+    if (stepId === "pull-assist" && formData.pullVariation === "assisted" && !String(formData.pullAssistValue).trim()) {
+      return fail("Enter your amount of assistance.");
+    }
+
+    if (stepId === "pull-max" && formData.pullVariation && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation) && formData.pullupMax <= 0) {
+      return fail("Enter your max clean reps.");
+    }
+
+    if (stepId === "squat-max" && formData.squatVariation && formData.squatVariation !== "none" && formData.squatMax <= 0) {
+      return fail("Enter your max clean reps.");
+    }
+
+    if (stepId === "plank" && (formData.focus.includes("strength") || formData.strengthGoals.length > 0) && formData.plankMax <= 0) {
+      return fail("Enter your best plank hold.");
+    }
+
+    if (stepId === "mile" && (formData.focus.includes("endurance") || formData.focus.includes("cardio"))) {
+      if (!formData.mileTime || parseTimeToSeconds(formData.mileTime) === null) {
+        return fail("Enter your mile time like 8:05.");
+      }
+    }
+
+    if (stepId === "run-duration" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !formData.runDuration) {
+      return fail("Enter your longest continuous effort.");
+    }
+
+    if (stepId === "run-distance" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !formData.runDistance) {
+      return fail("Enter your longest distance.");
+    }
+
+    if (stepId === "start-date" && !formData.startDate) {
+      return fail("Pick a start date.");
+    }
 
     return true;
   }
@@ -1224,12 +1527,24 @@ function initPlanner() {
     const visible = getVisibleSteps();
     currentStepIndex = clamp(currentStepIndex, 0, Math.max(0, visible.length - 1));
 
-    qsa(".planner-step").forEach((step) => step.classList.remove("active"));
+    qsa(".planner-step").forEach((step) => {
+      step.classList.remove("active");
+    });
+
     const currentId = visible[currentStepIndex];
-    byId(`step-${currentId}`)?.classList.add("active");
+    const currentEl = byId(`step-${currentId}`);
+
+    if (!currentEl) {
+      setStatus(statusBox, `Missing planner section: step-${currentId}`, "bad");
+      return;
+    }
+
+    currentEl.classList.add("active");
 
     if (progressFill) {
-      progressFill.style.width = visible.length ? `${((currentStepIndex + 1) / visible.length) * 100}%` : "0%";
+      progressFill.style.width = visible.length
+        ? `${((currentStepIndex + 1) / visible.length) * 100}%`
+        : "0%";
     }
 
     if (backBtn) backBtn.classList.toggle("hidden", currentStepIndex === 0);
@@ -1246,18 +1561,44 @@ function initPlanner() {
 
     const age = getAgeFromDob(formData.dob);
     const summaryItems = [
-      { label: "Focus", value: formData.focus.length ? formData.focus.map(titleCase).join(", ") : "Not set yet" },
-      { label: "Age Band", value: getAgeBand(age) },
-      { label: "Safety", value: getSafetyMode(age || 18) },
-      { label: "Equipment", value: formData.equipment.length ? formData.equipment.map(titleCase).join(", ") : "Not set yet" },
-      { label: "Workout Length", value: formData.sessionLength ? `${formData.sessionLength} minutes` : "Not set yet" }
+      {
+        label: "Focus",
+        value: formData.focus.length ? formData.focus.map(titleCase).join(", ") : "Not set yet"
+      },
+      {
+        label: "Age Band",
+        value: getAgeBand(age)
+      },
+      {
+        label: "Safety",
+        value: getSafetyMode(age || 18)
+      },
+      {
+        label: "Equipment",
+        value: formData.equipment.length ? formData.equipment.map(titleCase).join(", ") : "Not set yet"
+      },
+      {
+        label: "Workout Length",
+        value: formData.sessionLength ? `${formData.sessionLength} minutes` : "Not set yet"
+      }
     ];
 
-    if (formData.enduranceType.length) summaryItems.push({ label: "Endurance", value: formData.enduranceType.map(titleCase).join(", ") });
-    if (formData.strengthGoals.length) summaryItems.push({ label: "Strength Goals", value: formData.strengthGoals.map(titleCase).join(", ") });
+    if (formData.enduranceType.length) {
+      summaryItems.push({
+        label: "Endurance",
+        value: formData.enduranceType.map(titleCase).join(", ")
+      });
+    }
 
-    if (byId("planSummaryPreview")) {
-      byId("planSummaryPreview").innerHTML = `
+    if (formData.strengthGoals.length) {
+      summaryItems.push({
+        label: "Strength Goals",
+        value: formData.strengthGoals.map(titleCase).join(", ")
+      });
+    }
+
+    if (planSummaryPreview) {
+      planSummaryPreview.innerHTML = `
         <div class="summary-list">
           ${summaryItems.map((item) => `
             <div class="summary-item">
@@ -1279,6 +1620,11 @@ function initPlanner() {
     const plan = buildPlan(formData);
     const week1 = plan.weeks[0];
 
+    if (!week1 || !(week1.workouts || []).length) {
+      schedulePreview.innerHTML = `<div class="empty-box">Preview will appear as you answer questions.</div>`;
+      return;
+    }
+
     schedulePreview.innerHTML = `
       <div class="preview-week">
         <div class="preview-week-title">Week 1 Preview</div>
@@ -1290,7 +1636,7 @@ function initPlanner() {
                 <span class="preview-badge ${workout.isDeload ? "warn" : ""}">${safeText(workout.duration)} min</span>
               </div>
               <div class="preview-workout-sub">${safeText(workout.description)}</div>
-              <div class="preview-workout-sub">${workout.exercises.slice(0, 3).map((exercise) => exercise.name).join(" • ")}</div>
+              <div class="preview-workout-sub">${(workout.exercises || []).slice(0, 3).map((exercise) => exercise.name).join(" • ")}</div>
             </div>
           `).join("")}
         </div>
@@ -1298,22 +1644,23 @@ function initPlanner() {
     `;
   }
 
-  function generate() {
+  async function generate() {
     if (!validateStep()) return;
     syncFromInputs();
+
     const plan = buildPlan(formData);
-    saveCurrentPlan(plan);
+    await saveCurrentPlan(plan);
     savePlannerDraft(formData);
     setStatus(statusBox, "Plan generated and saved.", "ok");
     window.location.href = "./dashboard.html";
   }
 
-  handleTileGroup("#step-focus .tile-btn", "focus", 2);
-  handleTileGroup("#step-endurance-type .tile-btn", "enduranceType", 3);
-  handleTileGroup("#step-equipment .tile-btn", "equipment", 5);
-  handleTileGroup("#step-strength-goals .tile-btn", "strengthGoals", 3);
-  handleTileGroup("#step-push-skill .tile-btn", "pushSkill", 1);
-  handleTileGroup("#step-pull-skill .tile-btn", "pullSkill", 1);
+  bindTileGroup("#step-focus .tile-btn", "focus", 2);
+  bindTileGroup("#step-endurance-type .tile-btn", "enduranceType", 3);
+  bindTileGroup("#step-equipment .tile-btn", "equipment", 5);
+  bindTileGroup("#step-strength-goals .tile-btn", "strengthGoals", 3);
+  bindTileGroup("#step-push-skill .tile-btn", "pushSkill", 1);
+  bindTileGroup("#step-pull-skill .tile-btn", "pullSkill", 1);
 
   qsa("input, select").forEach((input) => {
     input.addEventListener("change", () => {
@@ -1330,11 +1677,13 @@ function initPlanner() {
       renderSummaryAndPreview();
     });
 
-    input.addEventListener("keydown", (event) => {
+    input.addEventListener("keydown", async (event) => {
       if (event.key === "Enter" && event.target.tagName.toLowerCase() !== "textarea") {
         event.preventDefault();
-        if (currentStepIndex === getVisibleSteps().length - 1) generate();
-        else if (validateStep()) {
+
+        if (currentStepIndex === getVisibleSteps().length - 1) {
+          await generate();
+        } else if (validateStep()) {
           currentStepIndex += 1;
           updateStep();
         }
@@ -1355,9 +1704,13 @@ function initPlanner() {
     updateStep();
   });
 
-  generateBtn?.addEventListener("click", generate);
+  generateBtn?.addEventListener("click", async () => {
+    await generate();
+  });
 
-  if (!formData.startDate) formData.startDate = toISODate(new Date());
+  if (!formData.startDate) {
+    formData.startDate = toISODate(new Date());
+  }
 
   applyDraftToInputs();
   updateAgePanels();
@@ -1367,6 +1720,7 @@ function initPlanner() {
 
 function getWorkoutHistoryPoint(plan, tracker, predicate, parser) {
   const points = [];
+
   (plan.weeks || []).forEach((week) => {
     (week.workouts || []).forEach((workout) => {
       (workout.exercises || []).forEach((exercise) => {
@@ -1374,17 +1728,24 @@ function getWorkoutHistoryPoint(plan, tracker, predicate, parser) {
         const entry = tracker.days?.[workout.date]?.[exercise.id];
         const parsed = parser(entry);
         if (parsed === null || parsed === undefined || parsed === "") return;
-        points.push({ date: workout.date, value: parsed, exerciseName: exercise.name });
+        points.push({
+          date: workout.date,
+          value: parsed,
+          exerciseName: exercise.name
+        });
       });
     });
   });
+
   return points;
 }
 
 function detectPlateau(points, better = "higher") {
   if (points.length < 4) return false;
+
   const last3 = points.slice(-3);
   const earlier = points.slice(0, -3);
+
   if (!earlier.length) return false;
 
   if (better === "lower") {
@@ -1407,6 +1768,7 @@ function getReadinessSummary(dayData) {
   if (!sleep || !soreness || !energy) return null;
 
   let score = 0;
+
   if (sleep >= 8) score += 2;
   else if (sleep >= 7) score += 1;
   else if (sleep <= 5) score -= 2;
@@ -1443,7 +1805,7 @@ function getAdjustedWorkout(workout, readiness) {
 
   const clone = JSON.parse(JSON.stringify(workout));
 
-  clone.exercises = clone.exercises.map((exercise, index) => {
+  clone.exercises = (clone.exercises || []).map((exercise, index) => {
     if (exercise.targetType === "minutes") {
       return {
         ...exercise,
@@ -1472,11 +1834,18 @@ function getAdjustedWorkout(workout, readiness) {
 
 function renderTrackerChecklist(items, bucket, date, tracker) {
   const doneMap = tracker.days?.[date]?.[bucket] || {};
+
   return `
     <div class="track-list">
-      ${items.map((item, index) => `
+      ${(items || []).map((item, index) => `
         <label class="track-item">
-          <input type="checkbox" data-track-bucket="${bucket}" data-track-date="${date}" data-track-index="${index}" ${doneMap[index] ? "checked" : ""}>
+          <input
+            type="checkbox"
+            data-track-bucket="${bucket}"
+            data-track-date="${date}"
+            data-track-index="${index}"
+            ${doneMap[index] ? "checked" : ""}
+          >
           <span>${item.text} • ${item.target} ${item.targetType}</span>
         </label>
       `).join("")}
@@ -1652,93 +2021,19 @@ function renderExerciseCard(exercise, date, existing) {
   `;
 }
 
-  const loadMode = existing?.loadMode || exercise.loadMode || "normal";
-  const loadValue = existing?.loadValue || "";
-
-  if (exercise.targetType === "minutes") {
-    return `
-      <div class="exercise-box">
-        <div class="exercise-head">
-          <div>
-            <div class="exercise-name">${safeText(exercise.name)}</div>
-            <div class="exercise-sub">${safeText(exercise.note)}</div>
-          </div>
-          <span class="chip neutral">${exercise.category === "endurance" ? "Endurance" : "Work"}</span>
-        </div>
-        <div class="exercise-meta">
-          <span class="meta-pill">${safeText(exercise.tempo)}</span>
-          <span class="meta-pill">${safeText(exercise.rest)}</span>
-        </div>
-        <div class="goal-load-box">${safeText(exercise.goalLoadText)}</div>
-        <label for="${exercise.id}-log">Goal</label>
-        <div class="small-note">${exercise.targets[0]} minutes</div>
-        <label for="${exercise.id}-log">Log completed work</label>
-        <input id="${exercise.id}-log" class="small-input" data-log-kind="text" data-exercise-id="${exercise.id}" data-date="${date}" type="text" placeholder="Example: 2.1 miles or 24 min" value="${existing?.logText || ""}">
-        <label for="${exercise.id}-note">Notes</label>
-        <textarea id="${exercise.id}-note" class="small-textarea" data-log-kind="note" data-exercise-id="${exercise.id}" data-date="${date}" placeholder="Optional notes">${existing?.noteText || ""}</textarea>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="exercise-box">
-      <div class="exercise-head">
-        <div>
-          <div class="exercise-name">${safeText(exercise.name)}</div>
-          <div class="exercise-sub">${safeText(exercise.note)}</div>
-        </div>
-        <span class="chip neutral">${safeText(titleCase(exercise.category))}</span>
-      </div>
-
-      <div class="exercise-meta">
-        <span class="meta-pill">${safeText(exercise.tempo)}</span>
-        <span class="meta-pill">${safeText(exercise.rest)}</span>
-        ${exercise.progressionText ? `<span class="meta-pill">${safeText(exercise.progressionText)}</span>` : ""}
-      </div>
-
-      <div class="goal-load-box">${safeText(exercise.goalLoadText)}</div>
-
-      <div class="set-grid header">
-        <div>Set</div>
-        <div>Goal</div>
-        <div>Log</div>
-      </div>
-
-      ${(exercise.targets || []).map((target, index) => `
-        <div class="set-grid">
-          <div>Set ${index + 1}</div>
-          <div class="set-goal">${target} ${exercise.targetType}</div>
-          <div>
-            <input class="small-input" data-log-kind="set" data-exercise-id="${exercise.id}" data-date="${date}" data-set-index="${index}" type="text" inputmode="numeric" placeholder="${exercise.targetType}" value="${existing?.values?.[index] || ""}">
-          </div>
-        </div>
-      `).join("")}
-
-      <div class="load-grid">
-        <div>
-          <label for="${exercise.id}-mode">Load mode</label>
-          <select id="${exercise.id}-mode" class="small-input" data-log-kind="mode" data-exercise-id="${exercise.id}" data-date="${date}">
-            <option value="normal" ${loadMode === "normal" ? "selected" : ""}>Normal</option>
-            <option value="load" ${loadMode === "load" ? "selected" : ""}>Added load</option>
-            <option value="assistance" ${loadMode === "assistance" ? "selected" : ""}>Assistance</option>
-          </select>
-        </div>
-        <div>
-          <label for="${exercise.id}-load">Load / assistance value</label>
-          <input id="${exercise.id}-load" class="small-input" data-log-kind="load" data-exercise-id="${exercise.id}" data-date="${date}" type="text" inputmode="decimal" placeholder="Required for load or assistance" value="${loadValue}" ${loadMode === "normal" ? "disabled" : ""}>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function getWorkoutStreak(plan, tracker) {
-  const workouts = (plan.weeks || []).flatMap((week) => week.workouts || []).filter((workout) => workout.date <= toISODate(new Date()));
+  const workouts = (plan.weeks || [])
+    .flatMap((week) => week.workouts || [])
+    .filter((workout) => workout.date <= toISODate(new Date()));
+
   let streak = 0;
 
   for (let i = workouts.length - 1; i >= 0; i -= 1) {
     const day = tracker.days?.[workouts[i].date];
-    const hasWorkoutLog = day && Object.keys(day).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key));
+    const hasWorkoutLog =
+      day &&
+      Object.keys(day).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key));
+
     if (!hasWorkoutLog) break;
     streak += 1;
   }
@@ -1747,7 +2042,8 @@ function getWorkoutStreak(plan, tracker) {
 }
 
 function renderProfile(plan, profileBox, currentPlanBox, tracker) {
-  const user = getUser();
+  const user = getCurrentUser();
+  const streak = getWorkoutStreak(plan, tracker);
 
   if (profileBox) {
     profileBox.innerHTML = `
@@ -1756,16 +2052,19 @@ function renderProfile(plan, profileBox, currentPlanBox, tracker) {
         <div class="info-value">${safeText(user?.username, "Local user")}</div>
         <div class="info-sub">${safeText(user?.email, "Stored locally")}</div>
       </div>
+
       <div class="info-card">
         <div class="info-label">Age band</div>
         <div class="info-value">${safeText(plan.profile.ageBand)}</div>
         <div class="info-sub">${safeText(plan.profile.safetyMode)}</div>
       </div>
+
       <div class="info-card">
         <div class="info-label">Focus</div>
         <div class="info-value">${plan.profile.focus.length ? plan.profile.focus.map(titleCase).join(", ") : "Not set yet"}</div>
         <div class="info-sub">${plan.profile.equipment.length ? plan.profile.equipment.map(titleCase).join(", ") : "Bodyweight only"}</div>
       </div>
+
       <div class="info-card">
         <div class="info-label">Training split</div>
         <div class="info-value">${plan.profile.daysPerWeek} workouts / week</div>
@@ -1781,16 +2080,19 @@ function renderProfile(plan, profileBox, currentPlanBox, tracker) {
         <div class="info-value">4-week plan</div>
         <div class="info-sub">${safeText(plan.weeks[0]?.note, "Build week.")}</div>
       </div>
+
       <div class="info-card">
         <div class="info-label">Readiness system</div>
         <div class="info-value">Active</div>
         <div class="info-sub">Low readiness reduces volume.</div>
       </div>
+
       <div class="info-card">
         <div class="info-label">Progression</div>
         <div class="info-value">Controlled</div>
         <div class="info-sub">No prescriptions above your reported max.</div>
       </div>
+
       <div class="info-card">
         <div class="info-label">Hypertrophy</div>
         <div class="info-value">Included</div>
@@ -1799,21 +2101,41 @@ function renderProfile(plan, profileBox, currentPlanBox, tracker) {
     `;
   }
 
-  const streak = getWorkoutStreak(plan, tracker);
-  if (byId("currentStreakNumber")) byId("currentStreakNumber").textContent = streak;
+  if (byId("currentStreakNumber")) {
+    byId("currentStreakNumber").textContent = streak;
+  }
+
   if (byId("currentStreakText")) {
-    byId("currentStreakText").textContent = streak > 0
-      ? `You have ${streak} completed workout day${streak === 1 ? "" : "s"} in a row.`
-      : "Complete today’s workout to start your streak.";
+    byId("currentStreakText").textContent =
+      streak > 0
+        ? `You have ${streak} completed workout day${streak === 1 ? "" : "s"} in a row.`
+        : "Complete today’s workout to start your streak.";
   }
 }
 
 function renderRecords(plan, tracker, recordsBox) {
   if (!recordsBox) return;
 
-  const pushPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "push", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
-  const pullAssistPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "pull", (entry) => entry?.loadMode === "assistance" ? toNumber(entry.loadValue, null) : null);
-  const plankPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "core", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
+  const pushPoints = getWorkoutHistoryPoint(
+    plan,
+    tracker,
+    (exercise) => exercise.category === "push",
+    (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null
+  );
+
+  const pullAssistPoints = getWorkoutHistoryPoint(
+    plan,
+    tracker,
+    (exercise) => exercise.category === "pull",
+    (entry) => entry?.loadMode === "assistance" ? toNumber(entry.loadValue, null) : null
+  );
+
+  const plankPoints = getWorkoutHistoryPoint(
+    plan,
+    tracker,
+    (exercise) => exercise.category === "core",
+    (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null
+  );
 
   const cards = [
     { label: "Best mile time", value: plan.records.mileTime, note: "Baseline from planner or workout logs." },
@@ -1836,16 +2158,44 @@ function renderRecords(plan, tracker, recordsBox) {
 function renderSignals(plan, tracker, signalsBox) {
   if (!signalsBox) return;
 
-  const pushPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "push", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
-  const pullAssistPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "pull", (entry) => entry?.loadMode === "assistance" && String(entry?.loadValue || "").trim() ? toNumber(entry.loadValue, null) : null);
-  const plankPoints = getWorkoutHistoryPoint(plan, tracker, (exercise) => exercise.category === "core", (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null);
+  const pushPoints = getWorkoutHistoryPoint(
+    plan,
+    tracker,
+    (exercise) => exercise.category === "push",
+    (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null
+  );
+
+  const pullAssistPoints = getWorkoutHistoryPoint(
+    plan,
+    tracker,
+    (exercise) => exercise.category === "pull",
+    (entry) => entry?.loadMode === "assistance" && String(entry?.loadValue || "").trim() ? toNumber(entry.loadValue, null) : null
+  );
+
+  const plankPoints = getWorkoutHistoryPoint(
+    plan,
+    tracker,
+    (exercise) => exercise.category === "core",
+    (entry) => Array.isArray(entry?.values) ? Math.max(...entry.values.map(Number)) : null
+  );
 
   const notes = [];
-  if (detectPlateau(pushPoints, "higher")) notes.push("Push progress looks flat. A reduced-volume week may help.");
-  if (detectPlateau(pullAssistPoints, "lower")) notes.push("Pull assistance is not dropping yet. Keep quality high before progressing.");
-  if (detectPlateau(plankPoints, "higher")) notes.push("Core endurance is flat. Hold quality first, then time.");
 
-  if (!notes.length) notes.push("No major warning signs right now. Stay consistent and keep quality high.");
+  if (detectPlateau(pushPoints, "higher")) {
+    notes.push("Push progress looks flat. A reduced-volume week may help.");
+  }
+
+  if (detectPlateau(pullAssistPoints, "lower")) {
+    notes.push("Pull assistance is not dropping yet. Keep quality high before progressing.");
+  }
+
+  if (detectPlateau(plankPoints, "higher")) {
+    notes.push("Core endurance is flat. Hold quality first, then time.");
+  }
+
+  if (!notes.length) {
+    notes.push("No major warning signs right now. Stay consistent and keep quality high.");
+  }
 
   signalsBox.innerHTML = safeText(notes.join(" "));
 }
@@ -1854,8 +2204,13 @@ function renderQuickStats(plan, tracker, quickStatsBox) {
   if (!quickStatsBox) return;
 
   const totalWorkouts = (plan.weeks || []).reduce((sum, week) => sum + (week.workouts || []).length, 0);
-  const loggedWorkouts = Object.values(tracker.days || {}).filter((day) => Object.keys(day).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key))).length;
-  const hypertrophyWorkouts = (plan.weeks || []).flatMap((week) => week.workouts || []).filter((workout) => workout.includesHypertrophy).length;
+  const loggedWorkouts = Object.values(tracker.days || {}).filter((day) =>
+    Object.keys(day).some((key) => !key.startsWith("_") && !["warmup", "cooldown"].includes(key))
+  ).length;
+
+  const hypertrophyWorkouts = (plan.weeks || [])
+    .flatMap((week) => week.workouts || [])
+    .filter((workout) => workout.includesHypertrophy).length;
 
   quickStatsBox.innerHTML = `
     <div class="info-card">
@@ -1863,16 +2218,19 @@ function renderQuickStats(plan, tracker, quickStatsBox) {
       <div class="info-value">${totalWorkouts}</div>
       <div class="info-sub">4-week plan</div>
     </div>
+
     <div class="info-card">
       <div class="info-label">Logged workouts</div>
       <div class="info-value">${loggedWorkouts}</div>
       <div class="info-sub">Saved on this device</div>
     </div>
+
     <div class="info-card">
       <div class="info-label">Hypertrophy sessions</div>
       <div class="info-value">${hypertrophyWorkouts}</div>
       <div class="info-sub">Strength days use controlled hypertrophy ranges.</div>
     </div>
+
     <div class="info-card">
       <div class="info-label">Safety mode</div>
       <div class="info-value">${safeText(plan.profile.safetyMode)}</div>
@@ -1940,11 +2298,13 @@ function renderToday(plan, tracker, todayBox) {
 
   const today = toISODate(new Date());
   const allWeeks = plan.weeks || [];
+
   const activeWeek =
     allWeeks.find((week) => (week.workouts || []).some((workout) => workout.date === today)) ||
     allWeeks[0];
 
   const weekWorkouts = activeWeek?.workouts || [];
+
   if (!weekWorkouts.length) {
     todayBox.innerHTML = `<div class="empty-box">No workout is available yet.</div>`;
     return;
@@ -1962,7 +2322,7 @@ function renderToday(plan, tracker, todayBox) {
   const displayWorkout = getAdjustedWorkout(current, readiness);
   const readinessLocked = !readiness;
 
-  const pickerMarkup = `
+  todayBox.innerHTML = `
     <div class="today-tabs">
       ${weekWorkouts.map((workout) => `
         <button
@@ -1974,15 +2334,6 @@ function renderToday(plan, tracker, todayBox) {
         </button>
       `).join("")}
     </div>
-  `;
-
-  const dayPickerContainer = byId("dayPickerContainer");
-  if (dayPickerContainer) {
-    dayPickerContainer.innerHTML = pickerMarkup;
-  }
-
-  todayBox.innerHTML = `
-    ${dayPickerContainer ? "" : pickerMarkup}
 
     <div class="today-card">
       <div class="day-top">
@@ -2016,7 +2367,11 @@ function renderToday(plan, tracker, todayBox) {
           <button type="button" id="saveReadinessBtn">Save readiness</button>
         </div>
         <div class="small-note">
-          ${readiness ? `${readiness.label}. ${readiness.note}` : "Set readiness first. Workout logging stays locked until readiness is saved."}
+          ${
+            readiness
+              ? `${readiness.label}. ${readiness.note}`
+              : "Set readiness first. Workout logging stays locked until readiness is saved."
+          }
         </div>
       </div>
 
@@ -2038,9 +2393,7 @@ function renderToday(plan, tracker, todayBox) {
     </div>
   `;
 
-  const pickerRoot = dayPickerContainer || todayBox;
-
-  qsa("[data-workout-tab]", pickerRoot).forEach((btn) => {
+  qsa("[data-workout-tab]", todayBox).forEach((btn) => {
     btn.addEventListener("click", () => {
       saveSelectedWorkoutId(plan.createdAt, btn.dataset.workoutTab);
       initDashboard();
@@ -2048,6 +2401,15 @@ function renderToday(plan, tracker, todayBox) {
   });
 
   byId("saveReadinessBtn")?.addEventListener("click", () => {
+    const sleep = toNumber(byId("sleepHours")?.value, 0);
+    const soreness = toNumber(byId("soreness")?.value, 0);
+    const energy = toNumber(byId("energy")?.value, 0);
+
+    if (!sleep || soreness < 1 || soreness > 5 || energy < 1 || energy > 5) {
+      alert("Enter sleep, soreness, and energy before saving readiness.");
+      return;
+    }
+
     const next = getTracker(plan.createdAt);
     if (!next.days[current.date]) next.days[current.date] = {};
 
@@ -2076,7 +2438,9 @@ function renderToday(plan, tracker, todayBox) {
   qsa('[data-log-kind="mode"]', todayBox).forEach((select) => {
     select.addEventListener("change", () => {
       const loadInput = byId(`${select.dataset.exerciseId}-load`);
-      if (loadInput) loadInput.disabled = select.value === "normal";
+      if (loadInput) {
+        loadInput.disabled = select.value === "normal";
+      }
     });
   });
 
@@ -2084,6 +2448,7 @@ function renderToday(plan, tracker, todayBox) {
     qsa("[data-log-kind]", todayBox).forEach((el) => {
       el.disabled = true;
     });
+
     qsa("[data-track-bucket]", todayBox).forEach((el) => {
       el.disabled = true;
     });
@@ -2091,9 +2456,13 @@ function renderToday(plan, tracker, todayBox) {
 
   byId("saveWorkoutBtn")?.addEventListener("click", () => {
     const currentTracker = getTracker(plan.createdAt);
-    if (!currentTracker.days[current.date]) currentTracker.days[current.date] = {};
+
+    if (!currentTracker.days[current.date]) {
+      currentTracker.days[current.date] = {};
+    }
 
     const readinessNow = getReadinessSummary(currentTracker.days[current.date]);
+
     if (!readinessNow) {
       alert("Save readiness first.");
       return;
@@ -2112,12 +2481,20 @@ function renderToday(plan, tracker, todayBox) {
         return;
       }
 
-      const values = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="set"]`, todayBox)
+      const values = qsa(
+        `[data-exercise-id="${exercise.id}"][data-log-kind="set"]`,
+        todayBox
+      )
         .map((input) => toNumber(input.value, 0))
-        .filter((value) => value > 0);
+        .filter((v) => v > 0);
 
-      const mode = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="mode"]`, todayBox)[0]?.value || "normal";
-      const loadValue = qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="load"]`, todayBox)[0]?.value || "";
+      const mode =
+        qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="mode"]`, todayBox)[0]
+          ?.value || "normal";
+
+      const loadValue =
+        qsa(`[data-exercise-id="${exercise.id}"][data-log-kind="load"]`, todayBox)[0]
+          ?.value || "";
 
       if ((mode === "load" || mode === "assistance") && !String(loadValue).trim()) {
         loadError = `${exercise.name}: enter a load or assistance value.`;
@@ -2140,42 +2517,37 @@ function renderToday(plan, tracker, todayBox) {
   });
 }
 
-function initDashboard() {
-  const currentPlanBox = byId("currentPlanBox");
-  const profileBox = byId("profileBox");
-  const recordsBox = byId("recordsBox");
-  const signalsBox = byId("signalsBox");
-  const quickStatsBox = byId("quickStatsBox");
-  const todayBox = byId("todayBox");
-  const weekTrackerBox = byId("weekTrackerBox");
-  const weeksAheadBox = byId("weeksAheadBox");
-  const logoutBtn = byId("logoutBtn");
+function renderEmptyDashboard() {
+  if (byId("currentPlanBox")) byId("currentPlanBox").innerHTML = `<div class="empty-box">Build your plan in the planner first.</div>`;
+  if (byId("profileBox")) byId("profileBox").innerHTML = `<div class="empty-box">No profile loaded yet.</div>`;
+  if (byId("recordsBox")) byId("recordsBox").innerHTML = `<div class="empty-box">No records yet.</div>`;
+  if (byId("signalsBox")) byId("signalsBox").innerHTML = `No coaching signals yet.`;
+  if (byId("quickStatsBox")) byId("quickStatsBox").innerHTML = `<div class="empty-box">No quick stats yet.</div>`;
+  if (byId("todayBox")) byId("todayBox").innerHTML = `<div class="empty-box">No workout to show yet.</div>`;
+  if (byId("weekTrackerBox")) byId("weekTrackerBox").innerHTML = `<div class="empty-box">No week loaded yet.</div>`;
+  if (byId("weeksAheadBox")) byId("weeksAheadBox").innerHTML = `<div class="empty-box">No future weeks yet.</div>`;
+  if (byId("currentStreakNumber")) byId("currentStreakNumber").textContent = "0";
+  if (byId("currentStreakText")) byId("currentStreakText").textContent = "Build a plan to get started.";
+  if (byId("weekTitle")) byId("weekTitle").textContent = "Week";
+}
 
-  const plan = getCurrentPlan();
+async function initDashboard() {
+  const plan = await loadCurrentPlan();
 
   if (!plan || !(plan.weeks || []).length) {
-    if (currentPlanBox) currentPlanBox.innerHTML = `<div class="empty-box">Build your plan in the planner first.</div>`;
-    if (profileBox) profileBox.innerHTML = `<div class="empty-box">No profile loaded yet.</div>`;
-    if (recordsBox) recordsBox.innerHTML = `<div class="empty-box">No records yet.</div>`;
-    if (signalsBox) signalsBox.innerHTML = `No coaching signals yet.`;
-    if (quickStatsBox) quickStatsBox.innerHTML = `<div class="empty-box">No quick stats yet.</div>`;
-    if (todayBox) todayBox.innerHTML = `<div class="empty-box">No workout to show yet.</div>`;
-    if (weekTrackerBox) weekTrackerBox.innerHTML = `<div class="empty-box">No week loaded yet.</div>`;
-    if (weeksAheadBox) weeksAheadBox.innerHTML = `<div class="empty-box">No future weeks yet.</div>`;
-    if (byId("currentStreakNumber")) byId("currentStreakNumber").textContent = "0";
-    if (byId("currentStreakText")) byId("currentStreakText").textContent = "Build a plan to get started.";
-    if (byId("weekTitle")) byId("weekTitle").textContent = "Week";
-  } else {
-    const tracker = getTracker(plan.createdAt);
-    renderProfile(plan, profileBox, currentPlanBox, tracker);
-    renderRecords(plan, tracker, recordsBox);
-    renderSignals(plan, tracker, signalsBox);
-    renderQuickStats(plan, tracker, quickStatsBox);
-    renderWeek(plan, tracker, weekTrackerBox, weeksAheadBox);
-    renderToday(plan, tracker, todayBox);
+    renderEmptyDashboard();
+    return;
   }
 
-  logoutBtn?.addEventListener("click", () => {
+  const tracker = getTracker(plan.createdAt);
+  renderProfile(plan, byId("profileBox"), byId("currentPlanBox"), tracker);
+  renderRecords(plan, tracker, byId("recordsBox"));
+  renderSignals(plan, tracker, byId("signalsBox"));
+  renderQuickStats(plan, tracker, byId("quickStatsBox"));
+  renderWeek(plan, tracker, byId("weekTrackerBox"), byId("weeksAheadBox"));
+  renderToday(plan, tracker, byId("todayBox"));
+
+  byId("logoutBtn")?.addEventListener("click", () => {
     localStorage.removeItem(STORAGE_KEYS.token);
     localStorage.removeItem(STORAGE_KEYS.user);
     window.location.href = "./account-test.html";
