@@ -1111,6 +1111,11 @@ async function initPlanner() {
     if (byId("longestRunDistanceUnit")) byId("longestRunDistanceUnit").value = String(formData.runDistance || "").toLowerCase().includes("km") ? "km" : "miles";
     if (byId("startDate")) byId("startDate").value = formData.startDate || toISODate(new Date());
 
+        if (byId("bodyWeight")) byId("bodyWeight").value = formData.weight || "";
+    if (byId("bodyWeightUnit")) byId("bodyWeightUnit").value = formData.weightUnit || "kg";
+    if (byId("bodyHeight")) byId("bodyHeight").value = formData.height || "";
+    if (byId("bodyHeightUnit")) byId("bodyHeightUnit").value = formData.heightUnit || "cm";
+    qsa("[data-gender]").forEach((btn) => btn.classList.toggle("active", formData.gender === btn.dataset.gender));
     qsa("[data-focus]").forEach((btn) => btn.classList.toggle("active", formData.focus.includes(btn.dataset.focus)));
     qsa("[data-type]").forEach((btn) => btn.classList.toggle("active", formData.enduranceType.includes(btn.dataset.type)));
     qsa("[data-equip]").forEach((btn) => btn.classList.toggle("active", formData.equipment.includes(btn.dataset.equip)));
