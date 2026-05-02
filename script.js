@@ -497,15 +497,9 @@ function normalizeFormData(raw) {
   data.mileTime = data.mileTime || "";
   data.runDuration = data.runDuration || "";
   data.runDistance = data.runDistance || "";
-    data.startDate = data.startDate || toISODate(new Date());
-  data.weight = String(data.weight || "").trim();
-  data.weightUnit = data.weightUnit || "kg";
-  data.height = String(data.height || "").trim();
-  data.heightUnit = data.heightUnit || "cm";
-  data.gender = data.gender || "";
-  data.enduranceGoal = unique(data.enduranceGoal).slice(0, 2);
+  data.startDate = data.startDate || toISODate(new Date());
   return data;
-
+}
 
 function normalizeLoadedPlan(plan) {
   if (!plan) return null;
