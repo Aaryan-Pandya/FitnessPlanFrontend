@@ -1193,6 +1193,27 @@ async function initPlanner() {
     }
   };
 
+    const renderEnduranceGoalStep = () => {
+    const grid = byId("enduranceGoalGrid");
+    if (!grid) return;
+    const goals = getEnduranceGoals(formData);
+    if (!goals.length) {
+      grid.innerHTML = `<div class="empty-box">No goals available for your selections.</div>`;
+      return;
+    }
+    grid.innerHTML = goals.map((g) => `
+      <button type="button" class="tile-btn ${(formData.enduranceGoal || []).includes(g.value) ? "active" : ""}"
+        data-endurance-goal="${g.value}"
+        style="text-align:left;height:auto;padding:14px 16px">
+        <span style="display:block;font-weight:800">${g.label}</span>
+        <span style="display:block;font-size:0.82rem;font-weight:500;opacity:0.75;margin-top:4px">${g.desc}</span>
+      </button>
+    `).join("");
+    grid.querySelectorAll("[data-endurance-goal]").forEach((btn) => {
+      btn.addEventListener("click", () => toggleArrayValue("enduranceGoal", btn.dataset.enduranceGoal, 2));
+    });
+  };
+
   const updateStep = () => {
     const visible = getVisibleSteps();
     currentIndex = clamp(currentIndex, 0, Math.max(0, visible.length - 1));
@@ -1200,6 +1221,8 @@ async function initPlanner() {
     qsa(".planner-step").forEach((step) => step.classList.add("hidden"));
     const currentId = visible[currentIndex];
     byId(`step-${currentId}`)?.classList.remove("hidden");
+
+    if (currentId === "endurance-goal") renderEnduranceGoalStep();
 
     if (progressFill) {
       progressFill.style.width = `${((currentIndex + 1) / visible.length) * 100}%`;
@@ -1209,6 +1232,7 @@ async function initPlanner() {
     nextBtn?.classList.toggle("hidden", currentIndex === visible.length - 1);
     generateBtn?.classList.toggle("hidden", currentIndex !== visible.length - 1);
   };
+
 
   const validateStep = () => {
     syncFromInputs();
