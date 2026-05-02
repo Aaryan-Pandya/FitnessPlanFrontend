@@ -534,6 +534,7 @@ p {
 .dashboard-shell {
   display: grid;
   gap: 20px;
+  max-width: 960px;
 }
 
 .hero-grid {
