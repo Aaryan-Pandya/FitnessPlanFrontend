@@ -55,6 +55,33 @@
           </label>
         </div>
 
+        <div id="step-body" class="planner-step hidden">
+  <label>Weight</label>
+  <div class="form-grid">
+    <input id="bodyWeight" class="small-input" type="number" min="0" step="0.1" placeholder="e.g. 70" />
+    <select id="bodyWeightUnit" class="small-input">
+      <option value="kg">kg</option>
+      <option value="lbs">lbs</option>
+    </select>
+  </div>
+  <label>Height</label>
+  <div class="form-grid">
+    <input id="bodyHeight" class="small-input" type="number" min="0" step="0.1" placeholder="e.g. 175" />
+    <select id="bodyHeightUnit" class="small-input">
+      <option value="cm">cm</option>
+      <option value="in">inches</option>
+    </select>
+  </div>
+  <label>Sex</label>
+  <div class="tile-grid">
+    <button type="button" class="tile-btn" data-gender="male">Male</button>
+    <button type="button" class="tile-btn" data-gender="female">Female</button>
+    <button type="button" class="tile-btn" data-gender="other">Other / prefer not to say</button>
+  </div>
+  <p class="small-note">Used for training norms only. All fields optional.</p>
+</div>
+
+
         <div id="step-focus" class="planner-step hidden">
           <label>Primary focus</label>
           <div class="tile-grid">
