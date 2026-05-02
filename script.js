@@ -1149,8 +1149,13 @@ async function initPlanner() {
     const distanceUnit = byId("longestRunDistanceUnit")?.value || "miles";
     formData.runDistance = distanceValue ? `${distanceValue} ${distanceUnit}` : "";
 
-    formData.startDate = byId("startDate")?.value || formData.startDate || toISODate(new Date());
+        formData.startDate = byId("startDate")?.value || formData.startDate || toISODate(new Date());
+    formData.weight = String(byId("bodyWeight")?.value || formData.weight || "").trim();
+    formData.weightUnit = byId("bodyWeightUnit")?.value || formData.weightUnit || "kg";
+    formData.height = String(byId("bodyHeight")?.value || formData.height || "").trim();
+    formData.heightUnit = byId("bodyHeightUnit")?.value || formData.heightUnit || "cm";
     formData = normalizeFormData(formData);
+
   };
 
   const updateAgePanels = () => {
