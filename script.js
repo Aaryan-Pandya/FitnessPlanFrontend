@@ -932,10 +932,12 @@ async function initPlanner() {
   const summaryBox = byId("planSummaryPreview");
   const previewBox = byId("schedulePreview");
 
-  const allSteps = [
+    const allSteps = [
     "dob",
+    "body",
     "focus",
     "endurance-type",
+    "endurance-goal",
     "equipment",
     "strength-goals",
     "push-skill",
