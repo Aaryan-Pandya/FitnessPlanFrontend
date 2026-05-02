@@ -478,11 +478,18 @@ function normalizeFormData(raw) {
   const data = { ...(raw || {}) };
   data.parentConsent = !!data.parentConsent;
   data.focus = unique(data.focus);
-  data.enduranceType = unique(data.enduranceType);
-  data.equipment = unique(data.equipment);
-  data.strengthGoals = unique(data.strengthGoals);
-  data.pushSkill = unique(data.pushSkill);
-  data.pullSkill = unique(data.pullSkill);
+data.enduranceType = unique(data.enduranceType);
+data.enduranceGoal = unique(data.enduranceGoal);
+data.equipment = unique(data.equipment);
+data.strengthGoals = unique(data.strengthGoals);
+data.pushSkill = unique(data.pushSkill);
+data.pullSkill = unique(data.pullSkill);
+
+data.gender = data.gender || "";
+data.weight = String(data.weight || "").trim();
+data.weightUnit = data.weightUnit || "kg";
+data.height = String(data.height || "").trim();
+data.heightUnit = data.heightUnit || "cm";
   data.daysPerWeek = clamp(toNumber(data.daysPerWeek, 3), 3, 5);
   data.sessionLength = [30, 60, 90].includes(toNumber(data.sessionLength, 60))
     ? toNumber(data.sessionLength, 60)
