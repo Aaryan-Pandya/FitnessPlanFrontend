@@ -1255,15 +1255,30 @@ async function initPlanner() {
     if (stepId === "pull-max" && formData.pullVariation && !["none", "dead-hang", "active-hang"].includes(formData.pullVariation) && formData.pullupMax <= 0) return setStatus(statusBox, "Enter your max clean reps.", "bad"), false;
     if (stepId === "squat-max" && formData.squatVariation && formData.squatVariation !== "none" && formData.squatMax <= 0) return setStatus(statusBox, "Enter your max clean reps.", "bad"), false;
     if (stepId === "plank" && (formData.focus.includes("strength") || formData.strengthGoals.length > 0) && formData.plankMax <= 0) return setStatus(statusBox, "Enter your best plank hold.", "bad"), false;
-    if (stepId === "mile" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && parseTimeToSeconds(formData.mileTime) === null) return setStatus(statusBox, "Enter your mile time like 8:05.", "bad"), false;
-    if (stepId === "run-duration" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !formData.runDuration) return setStatus(statusBox, "Enter your longest continuous effort.", "bad"), false;
-    if (stepId === "run-distance" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !formData.runDistance) return setStatus(statusBox, "Enter your longest distance.", "bad"),     if (stepId === "endurance-goal" && !formData.enduranceGoal?.length) return setStatus(statusBox, "Pick at least 1 goal.", "bad"), false;
-    if (stepId === "start-date" && !formData.startDate) return setStatus(statusBox, "Pick a start date.", "bad"), false;
+    if (stepId === "mile" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && parseTimeToSeconds(formData.mileTime) === null) {
+  setStatus(statusBox, "Enter your mile time like 8:05.", "bad");
+  return false;
+}
 
+if (stepId === "run-duration" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !formData.runDuration) {
+  setStatus(statusBox, "Enter your longest continuous effort.", "bad");
+  return false;
+}
 
-    setStatus(statusBox, "Answer the questions to build your plan.");
-    return true;
-  };
+if (stepId === "run-distance" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !formData.runDistance) {
+  setStatus(statusBox, "Enter your longest distance.", "bad");
+  return false;
+}
+
+if (stepId === "endurance-goal" && (formData.focus.includes("endurance") || formData.focus.includes("cardio")) && !(formData.enduranceGoal || []).length) {
+  setStatus(statusBox, "Pick at least 1 goal.", "bad");
+  return false;
+}
+
+if (stepId === "start-date" && !formData.startDate) {
+  setStatus(statusBox, "Pick a start date.", "bad");
+  return false;
+}
 
   const refreshPreview = () => {
     syncFromInputs();
