@@ -55,6 +55,113 @@ function titleCase(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function goalLabel(value) {
+  const map = {
+    "mile": "Mile", "5k": "5K", "10k": "10K",
+    "half-marathon": "Half Marathon", "marathon": "Marathon", "ultra": "Ultra Marathon",
+    "sprint-tri": "Sprint Triathlon", "olympic-tri": "Olympic Triathlon",
+    "half-ironman": "Half Ironman (70.3)", "ironman": "Ironman",
+    "cycling-10mi": "10 Mile TT", "cycling-25mi": "25 Mile Ride",
+    "cycling-50mi": "Century Prep (50mi)", "cycling-100mi": "Century (100mi)",
+    "gran-fondo": "Gran Fondo",
+    "swim-500m": "500m Continuous", "swim-1500m": "1500m Swim",
+    "swim-open-1k": "Open Water 1K", "swim-ironman": "2.4 Mile Swim",
+    "400m": "400m Dash", "800m": "800m Run", "vo2max": "VO2 Max", "rhr": "Cardiac Base"
+  };
+  return map[value] || titleCase(String(value).replace(/-/g, " "));
+}
+
+function getEnduranceGoals(formData) {
+  const types = formData.enduranceType || [];
+  const focus = formData.focus || [];
+  const hasRunning = types.includes("running");
+  const hasCycling = types.includes("cycling");
+  const hasSwimming = types.includes("swimming");
+  const hasCardio = focus.includes("cardio");
+  const isTri = hasRunning && hasCycling && hasSwimming;
+  const goals = [];
+
+  if (isTri) {
+    goals.push(
+      { value: "sprint-tri",   label: "Sprint Triathlon",     desc: "750m swim · 20km bike · 5km run" },
+      { value: "olympic-tri",  label: "Olympic Triathlon",    desc: "1.5km swim · 40km bike · 10km run" },
+      { value: "half-ironman", label: "Half Ironman (70.3)",  desc: "1.9km swim · 90km bike · 21km run" },
+      { value: "ironman",      label: "Ironman",              desc: "3.8km swim · 180km bike · 42.2km run" }
+    );
+  }
+  if (hasRunning) {
+    goals.push(
+      { value: "mile",           label: "Mile",          desc: "Run a fast mile — speed focused" },
+      { value: "5k",             label: "5K",            desc: "3.1 miles — speed and aerobic base" },
+      { value: "10k",            label: "10K",           desc: "6.2 miles — threshold and endurance" },
+      { value: "half-marathon",  label: "Half Marathon", desc: "13.1 miles" },
+      { value: "marathon",       label: "Marathon",      desc: "26.2 miles" },
+      { value: "ultra",          label: "Ultra Marathon",desc: "50K or beyond" }
+    );
+  }
+  if (hasCycling && !isTri) {
+    goals.push(
+      { value: "cycling-10mi",  label: "10 Mile TT",       desc: "Sustained time trial effort" },
+      { value: "cycling-25mi",  label: "25 Mile Ride",     desc: "Moderate endurance ride" },
+      { value: "cycling-50mi",  label: "Century Prep",     desc: "Build to 50 mile ride" },
+      { value: "cycling-100mi", label: "Century (100mi)",  desc: "Complete a century ride" },
+      { value: "gran-fondo",    label: "Gran Fondo",       desc: "Long sportive event" }
+    );
+  }
+  if (hasSwimming && !isTri) {
+    goals.push(
+      { value: "swim-500m",    label: "500m Continuous", desc: "Swim 500m non-stop" },
+      { value: "swim-1500m",   label: "1500m Swim",      desc: "Olympic distance swim" },
+      { value: "swim-open-1k", label: "Open Water 1K",   desc: "Open water 1km" },
+      { value: "swim-ironman", label: "2.4 Mile Swim",   desc: "Full Ironman swim leg" }
+    );
+  }
+  if (hasCardio) {
+    goals.push(
+      { value: "400m",  label: "400m Dash",    desc: "Track sprint event" },
+      { value: "800m",  label: "800m Run",     desc: "Middle distance track" },
+      { value: "vo2max",label: "VO2 Max",      desc: "Maximize aerobic capacity" },
+      { value: "rhr",   label: "Cardiac Base", desc: "Lower resting heart rate" }
+    );
+  }
+  return goals;
+}
+
+function getGoalSessionPlan(primaryGoal, daysAvailable, week) {
+  const isDeload = week === 4;
+  const plans = {
+    "mile":           ["easy", "interval", "tempo", "easy"],
+    "5k":             ["easy", "interval", "tempo", "easy"],
+    "10k":            ["easy", "tempo",    "interval", "long"],
+    "half-marathon":  ["easy", "easy",     "tempo",    "long"],
+    "marathon":       ["easy", "easy",     "tempo",    "long"],
+    "ultra":          ["easy", "easy",     "long",     "long"],
+    "sprint-tri":     ["easy", "interval", "brick",    "long"],
+    "olympic-tri":    ["easy", "tempo",    "brick",    "long"],
+    "half-ironman":   ["easy", "easy",     "tempo",    "long"],
+    "ironman":        ["easy", "easy",     "long",     "long"],
+    "cycling-10mi":   ["easy", "interval", "tempo",    "easy"],
+    "cycling-25mi":   ["easy", "tempo",    "long",     "easy"],
+    "cycling-50mi":   ["easy", "easy",     "long",     "easy"],
+    "cycling-100mi":  ["easy", "easy",     "long",     "easy"],
+    "gran-fondo":     ["easy", "easy",     "long",     "easy"],
+    "swim-500m":      ["easy", "interval", "tempo",    "easy"],
+    "swim-1500m":     ["easy", "tempo",    "long",     "easy"],
+    "swim-open-1k":   ["easy", "tempo",    "long",     "easy"],
+    "swim-ironman":   ["easy", "easy",     "long",     "easy"],
+    "400m":           ["easy", "interval", "interval", "easy"],
+    "800m":           ["easy", "interval", "tempo",    "easy"],
+    "vo2max":         ["easy", "interval", "tempo",    "easy"],
+    "rhr":            ["easy", "easy",     "long",     "easy"]
+  };
+  const plan = (plans[primaryGoal] || ["easy", "easy", "long", "easy"]).slice(0, daysAvailable);
+  if (isDeload) {
+    return plan.map(s => (s === "long" || s === "brick") ? "easy" : s === "interval" ? "tempo" : "easy");
+  }
+  return plan;
+}
+
+
 function formatDateLabel(dateLike) {
   const date = new Date(typeof dateLike === "string" ? `${dateLike}T12:00:00` : dateLike);
   if (Number.isNaN(date.getTime())) return "Date not set";
