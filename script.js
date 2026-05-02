@@ -1315,25 +1315,47 @@ if (stepId === "start-date" && !formData.startDate) {
     updateStep();
   };
 
-  qsa("[data-focus]").forEach((btn) => btn.addEventListener("click", () => toggleArrayValue("focus", btn.dataset.focus, 2)));
-  qsa("[data-type]").forEach((btn) => btn.addEventListener("click", () => toggleArrayValue("enduranceType", btn.dataset.type, 3)));
-  qsa("[data-equip]").forEach((btn) => btn.addEventListener("click", () => toggleArrayValue("equipment", btn.dataset.equip, 5)));
-  qsa("[data-goal]").forEach((btn) => btn.addEventListener("click", () => toggleArrayValue("strengthGoals", btn.dataset.goal, 3)));
-  qsa("#step-push-skill .tile-btn").forEach((btn) => btn.addEventListener("click", () => {
-      qsa("#step-push-skill .tile-btn").forEach((btn) => btn.addEventListener("click", () => {
+  qsa("[data-focus]").forEach((btn) => {
+  btn.addEventListener("click", () => toggleArrayValue("focus", btn.dataset.focus, 2));
+});
+
+qsa("[data-type]").forEach((btn) => {
+  btn.addEventListener("click", () => toggleArrayValue("enduranceType", btn.dataset.type, 3));
+});
+
+qsa("[data-equip]").forEach((btn) => {
+  btn.addEventListener("click", () => toggleArrayValue("equipment", btn.dataset.equip, 5));
+});
+
+qsa("[data-goal]").forEach((btn) => {
+  btn.addEventListener("click", () => toggleArrayValue("strengthGoals", btn.dataset.goal, 3));
+});
+
+qsa("#step-push-skill .tile-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
     formData.pushSkill = [btn.dataset.skill];
     applyDraftToInputs();
     savePlannerDraft(formData);
-  }));
-  qsa("#step-pull-skill .tile-btn").forEach((btn) => btn.addEventListener("click", () => {
+    refreshPreview();
+  });
+});
+
+qsa("#step-pull-skill .tile-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
     formData.pullSkill = [btn.dataset.skill];
     applyDraftToInputs();
     savePlannerDraft(formData);
-  }));
-  qsa("[data-gender]").forEach((btn) => btn.addEventListener("click", () => {
+    refreshPreview();
+  });
+});
+
+qsa("[data-gender]").forEach((btn) => {
+  btn.addEventListener("click", () => {
     formData.gender = formData.gender === btn.dataset.gender ? "" : btn.dataset.gender;
     applyDraftToInputs();
     savePlannerDraft(formData);
+    refreshPreview();
+  });
   }));
 
   qsa("input, select").forEach((input) => {
