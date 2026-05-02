@@ -965,6 +965,7 @@ async function initPlanner() {
   const getVisibleSteps = () =>
     allSteps.filter((step) => {
       if (step === "endurance-type") return formData.focus.includes("endurance") || formData.focus.includes("cardio");
+      if (step === "endurance-goal") return formData.focus.includes("endurance") || formData.focus.includes("cardio");
       if (step === "strength-goals") return formData.focus.includes("strength");
       if (step === "push-skill") return formData.strengthGoals.includes("push");
       if (step === "pull-skill") return formData.strengthGoals.includes("pull");
