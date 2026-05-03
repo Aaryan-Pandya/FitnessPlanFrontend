@@ -1293,7 +1293,11 @@ if (stepId === "start-date" && !formData.startDate) {
   return false;
 }
 
-  const refreshPreview = () => {
+setStatus(statusBox, "Answer the questions to build your plan.");
+return true;
+};
+
+const refreshPreview = () => {
     syncFromInputs();
     const hasEnough = formData.focus.length || formData.strengthGoals.length;
     if (!hasEnough) {
