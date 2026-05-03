@@ -1922,3 +1922,204 @@ h1 {
     flex: 0 0 36px;
   }
 }
+/* ===== FitnessPlan final branding layer ===== */
+
+:root {
+  --fp-bg-1: #02050a;
+  --fp-bg-2: #071327;
+  --fp-panel: rgba(10, 20, 40, 0.88);
+  --fp-panel-strong: rgba(8, 16, 30, 0.96);
+  --fp-border: rgba(183, 255, 56, 0.14);
+  --fp-border-strong: rgba(183, 255, 56, 0.28);
+  --fp-text: #f8fbff;
+  --fp-text-soft: #c8d4e8;
+  --fp-green: #b7ff38;
+  --fp-green-2: #7dff45;
+  --fp-green-dark: #5fdc2d;
+  --fp-blue: #1d8cff;
+  --fp-shadow: 0 20px 40px rgba(0, 0, 0, 0.32);
+  --fp-radius: 24px;
+}
+
+body {
+  color: var(--fp-text);
+  background:
+    radial-gradient(circle at 16% 14%, rgba(183, 255, 56, 0.08), transparent 18%),
+    radial-gradient(circle at 84% 10%, rgba(29, 140, 255, 0.08), transparent 18%),
+    linear-gradient(180deg, #010308 0%, #04101f 46%, #061529 100%) !important;
+}
+
+.site-header {
+  background: rgba(2, 7, 16, 0.92) !important;
+  border-bottom: 1px solid rgba(183, 255, 56, 0.12) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.brand.brand--with-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.brand-logo {
+  width: 42px !important;
+  height: 42px !important;
+  object-fit: contain;
+  display: block;
+  flex: 0 0 42px !important;
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px rgba(183, 255, 56, 0.14),
+    0 0 18px rgba(183, 255, 56, 0.08);
+}
+
+.brand-text {
+  display: inline-block;
+  line-height: 1;
+  color: #ffffff;
+  font-size: clamp(1.8rem, 3vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.nav-pill {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(183, 255, 56, 0.10) !important;
+  color: #eef3ff !important;
+}
+
+.nav-pill:hover {
+  background: rgba(183, 255, 56, 0.10) !important;
+  border-color: rgba(183, 255, 56, 0.22) !important;
+  color: #ffffff !important;
+}
+
+.nav-pill--active {
+  background: linear-gradient(180deg, rgba(183, 255, 56, 0.16), rgba(29, 140, 255, 0.14)) !important;
+  border-color: rgba(183, 255, 56, 0.42) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(183, 255, 56, 0.04);
+}
+
+button,
+.primary-btn {
+  background: linear-gradient(135deg, var(--fp-blue), var(--fp-green-dark)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(125, 255, 69, 0.16) !important;
+}
+
+button.secondary,
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #eef3ff !important;
+  border: 1px solid rgba(183, 255, 56, 0.12) !important;
+  box-shadow: none !important;
+}
+
+.card,
+.panel,
+.hero-card,
+.summary-card,
+.dashboard-card,
+.streak-card,
+.metric-card,
+.info-card,
+.record-card,
+.summary-item,
+.today-card,
+.session-block,
+.exercise-box,
+.week-card,
+.week-mini-card,
+.preview-summary,
+.empty-box,
+.status-box {
+  background: linear-gradient(180deg, rgba(7, 18, 34, 0.96), rgba(5, 14, 28, 0.95)) !important;
+  border-color: rgba(183, 255, 56, 0.12) !important;
+}
+
+.eyebrow,
+.section-kicker,
+.summary-label,
+.info-label,
+.record-title,
+.block-title {
+  color: #c9ff67 !important;
+}
+
+.tile-btn.active,
+.day-tab.active {
+  background: linear-gradient(180deg, rgba(183, 255, 56, 0.16), rgba(29, 140, 255, 0.14)) !important;
+  border-color: rgba(183, 255, 56, 0.42) !important;
+  color: #ffffff !important;
+}
+
+.streak-hero {
+  background:
+    radial-gradient(circle at top right, rgba(183, 255, 56, 0.18), transparent 36%),
+    linear-gradient(180deg, rgba(12, 32, 22, 0.98), rgba(8, 18, 28, 0.95)) !important;
+  border: 1px solid rgba(183, 255, 56, 0.20) !important;
+}
+
+.hero-badge,
+.mini-pill,
+.badge,
+.chip,
+.meta-pill,
+.preview-badge {
+  background: rgba(183, 255, 56, 0.12) !important;
+  color: #eaffb8 !important;
+  border: 1px solid rgba(183, 255, 56, 0.18);
+}
+
+input,
+select,
+textarea,
+.small-input,
+.small-textarea {
+  border-color: rgba(183, 255, 56, 0.14) !important;
+  background: rgba(8, 18, 40, 0.88) !important;
+  color: #f4f8ff !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(183, 255, 56, 0.48) !important;
+  box-shadow: 0 0 0 3px rgba(183, 255, 56, 0.10) !important;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  right: -50px;
+  bottom: -50px;
+  width: 280px;
+  height: 280px;
+  background: url("./fitnessplan-icon-dark.jpg") no-repeat center / contain;
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 0;
+  filter: drop-shadow(0 0 20px rgba(183, 255, 56, 0.08));
+}
+
+.site-header,
+.page-shell {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 760px) {
+  .brand-logo {
+    width: 36px !important;
+    height: 36px !important;
+    flex: 0 0 36px !important;
+  }
+
+  .brand-text {
+    font-size: 1.6rem;
+  }
+}
