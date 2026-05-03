@@ -1373,7 +1373,7 @@ qsa("[data-gender]").forEach((btn) => {
     savePlannerDraft(formData);
     refreshPreview();
   });
-  }));
+});
 
   qsa("input, select").forEach((input) => {
     input.addEventListener("change", () => {
