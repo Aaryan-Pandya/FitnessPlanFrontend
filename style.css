@@ -2004,8 +2004,13 @@ body {
     0 0 0 1px rgba(183, 255, 56, 0.04);
 }
 
-button,
-.primary-btn {
+.primary-btn,
+#plannerNextBtn,
+#generatePlanBtn,
+#createAccountBtn,
+#loginBtn,
+#saveReadinessBtn,
+#saveWorkoutBtn {
   background: linear-gradient(135deg, var(--fp-blue), var(--fp-green-dark)) !important;
   color: #ffffff !important;
   box-shadow: 0 10px 24px rgba(125, 255, 69, 0.16) !important;
