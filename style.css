@@ -2128,3 +2128,29 @@ body::after {
     font-size: 1.6rem;
   }
 }
+/* ===== Selected state fix ===== */
+
+.tile-btn,
+.day-tab,
+.nav-pill {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(183, 255, 56, 0.12) !important;
+  color: #eef3ff !important;
+  box-shadow: none !important;
+}
+
+.tile-btn:hover,
+.day-tab:hover,
+.nav-pill:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(183, 255, 56, 0.22) !important;
+}
+
+.tile-btn.active,
+.day-tab.active,
+.nav-pill--active {
+  background: linear-gradient(135deg, #2e77ff, #7dff45) !important;
+  border-color: rgba(183, 255, 56, 0.45) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 24px rgba(125, 255, 69, 0.18) !important;
+}
