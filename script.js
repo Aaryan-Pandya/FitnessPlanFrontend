@@ -216,10 +216,19 @@ function savePlannerDraft(draft) {
 
 function getPlannerDraft() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.plannerDraft) || "null");
+    const draft = JSON.parse(localStorage.getItem(STORAGE_KEYS.plannerDraft) || "null");
+
+    if (!draft || draft._draftVersion !== PLANNER_DRAFT_VERSION) {
+      localStorage.removeItem(STORAGE_KEYS.plannerDraft);
+      return null;
+    }
+
+    return draft;
   } catch {
+    localStorage.removeItem(STORAGE_KEYS.plannerDraft);
     return null;
   }
+}
 }
 
 function cachePlan(plan) {
