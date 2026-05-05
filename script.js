@@ -1712,7 +1712,42 @@ const refreshPreview = () => {
   };
 
   qsa("[data-focus]").forEach((btn) => {
-  btn.addEventListener("click", () => toggleArrayValue("focus", btn.dataset.focus, 2));
+  btn.addEventListener("click", () => {
+    const selectedGoal = btn.dataset.focus;
+
+    // One primary goal only. No mixing engines.
+    formData.focus = [selectedGoal];
+
+    // Clear old endurance choices unless the new goal is endurance.
+    if (selectedGoal !== "endurance") {
+      formData.enduranceType = [];
+      formData.enduranceGoal = [];
+      formData.mileTime = "";
+      formData.runDuration = "";
+      formData.runDistance = "";
+    }
+
+    // Clear old strength choices unless the new goal uses strength-style planning.
+    if (selectedGoal !== "strength" && selectedGoal !== "hypertrophy") {
+      formData.strengthGoals = [];
+      formData.pushSkill = [];
+      formData.pullSkill = [];
+      formData.pushVariation = "";
+      formData.pushupMax = 0;
+      formData.pullVariation = "";
+      formData.pullupMax = 0;
+      formData.squatVariation = "";
+      formData.squatMax = 0;
+      formData.wallSit = 0;
+      formData.plankMax = 0;
+    }
+
+    formData = normalizeFormData(formData);
+    applyDraftToInputs();
+    savePlannerDraft(formData);
+    refreshPreview();
+    updateStep();
+  });
 });
 
 qsa("[data-type]").forEach((btn) => {
