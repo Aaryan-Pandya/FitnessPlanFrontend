@@ -317,6 +317,96 @@
     </div>
   </main>
 
-  <script src="./script.js"></script>
+  <script>
+
+  window.addEventListener("error", function (event) {
+
+    const box = document.createElement("div");
+
+    box.style.position = "fixed";
+
+    box.style.left = "12px";
+
+    box.style.right = "12px";
+
+    box.style.bottom = "12px";
+
+    box.style.zIndex = "99999";
+
+    box.style.padding = "14px";
+
+    box.style.borderRadius = "12px";
+
+    box.style.background = "#7f1d1d";
+
+    box.style.color = "white";
+
+    box.style.fontFamily = "Arial, sans-serif";
+
+    box.style.fontSize = "14px";
+
+    box.style.lineHeight = "1.4";
+
+    box.style.whiteSpace = "pre-wrap";
+
+    box.textContent =
+
+      "JavaScript error:\n" +
+
+      event.message +
+
+      "\nFile: " + event.filename +
+
+      "\nLine: " + event.lineno +
+
+      "\nColumn: " + event.colno;
+
+    document.body.appendChild(box);
+
+  });
+
+  window.addEventListener("unhandledrejection", function (event) {
+
+    const box = document.createElement("div");
+
+    box.style.position = "fixed";
+
+    box.style.left = "12px";
+
+    box.style.right = "12px";
+
+    box.style.bottom = "12px";
+
+    box.style.zIndex = "99999";
+
+    box.style.padding = "14px";
+
+    box.style.borderRadius = "12px";
+
+    box.style.background = "#7f1d1d";
+
+    box.style.color = "white";
+
+    box.style.fontFamily = "Arial, sans-serif";
+
+    box.style.fontSize = "14px";
+
+    box.style.lineHeight = "1.4";
+
+    box.style.whiteSpace = "pre-wrap";
+
+    box.textContent =
+
+      "Promise error:\n" +
+
+      (event.reason?.message || event.reason || "Unknown error");
+
+    document.body.appendChild(box);
+
+  });
+
+</script>
+
+<script src="./script.js"></script>
 </body>
 </html>
