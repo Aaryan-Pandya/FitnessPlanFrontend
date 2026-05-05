@@ -206,7 +206,12 @@ function setStatus(el, message, type = "") {
 }
 
 function savePlannerDraft(draft) {
-  localStorage.setItem(STORAGE_KEYS.plannerDraft, JSON.stringify(draft));
+  const versionedDraft = {
+    ...(draft || {}),
+    _draftVersion: PLANNER_DRAFT_VERSION
+  };
+
+  localStorage.setItem(STORAGE_KEYS.plannerDraft, JSON.stringify(versionedDraft));
 }
 
 function getPlannerDraft() {
