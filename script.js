@@ -600,178 +600,535 @@ function buildExercise({ id, name, category, targetType, targets, tempo, rest, l
   };
 }
 
-function getWorkoutSlots(formData, week = 1) {
-  const slots = [];
-  const wantsStrength = formData.focus.includes("strength") || formData.strengthGoals.length > 0;
-  const wantsEndurance = formData.focus.includes("endurance") || formData.focus.includes("cardio");
-  const wantsFlex = formData.focus.includes("flexibility");
+function normalizeGoalName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+}
 
-  if (wantsStrength) {
-    if (formData.strengthGoals.includes("push") || formData.strengthGoals.length === 0) {
-      slots.push({ kind: "strength", emphasis: "push", label: "Push Path" });
-    }
-    if (formData.strengthGoals.includes("pull") || formData.strengthGoals.length === 0) {
-      slots.push({ kind: "strength", emphasis: "pull", label: "Pull Path" });
-    }
-    if (formData.strengthGoals.includes("squat") || formData.strengthGoals.length === 0) {
-      slots.push({ kind: "strength", emphasis: "legs", label: "Leg Path" });
-    }
+function getPrimaryRuleGoal(formData) {
+  const explicit = normalizeGoalName(formData.goal || formData.primaryGoal || formData.mainGoal);
+
+  if (["hypertrophy", "strength", "endurance", "tendon", "balance"].includes(explicit)) {
+    return explicit;
   }
 
-  if (wantsEndurance) {
-    const types = formData.enduranceType.length ? formData.enduranceType : ["running"];
-    const slotsToUse = Math.min(2, Math.max(1, formData.daysPerWeek - slots.length));
-    for (let i = 0; i < slotsToUse; i += 1) {
-      const type = types[(week - 1 + i) % types.length];
-      slots.push({
-        kind: "endurance",
-        emphasis: type,
-        label: `${titleCase(type)} Engine`
-      });
-    }
+  if (explicit === "tendon-rehab" || explicit === "rehab") return "tendon";
+  if (explicit === "stability" || explicit === "balance-stability") return "balance";
+
+  const focus = formData.focus || [];
+
+  if (focus.includes("hypertrophy")) return "hypertrophy";
+  if (focus.includes("strength")) return "strength";
+  if (focus.includes("endurance") || focus.includes("cardio")) return "endurance";
+  if (focus.includes("tendon") || focus.includes("rehab") || focus.includes("tendon-rehab")) return "tendon";
+  if (focus.includes("balance") || focus.includes("flexibility")) return "balance";
+
+  return "strength";
+}
+
+function getExperienceLevel(formData) {
+  const explicit = normalizeGoalName(formData.experience || formData.experienceLevel || formData.trainingAge);
+
+  if (["beginner", "intermediate", "advanced"].includes(explicit)) {
+    return explicit;
   }
 
-  if (wantsFlex) {
-    slots.push({ kind: "mobility", emphasis: "mobility", label: "Mobility Reset" });
+  const push = toNumber(formData.pushupMax, 0);
+  const pull = toNumber(formData.pullupMax, 0);
+  const squat = toNumber(formData.squatMax, 0);
+  const mileSeconds = parseTimeToSeconds(formData.mileTime);
+
+  if (push >= 30 || pull >= 8 || squat >= 40 || (mileSeconds && mileSeconds < 420)) {
+    return "advanced";
   }
 
-  if (!slots.length) {
-    slots.push({ kind: "strength", emphasis: "push", label: "Push Path" });
-    slots.push({ kind: "strength", emphasis: "pull", label: "Pull Path" });
-    slots.push({ kind: "strength", emphasis: "legs", label: "Leg Path" });
+  if (push >= 12 || pull >= 3 || squat >= 20 || (mileSeconds && mileSeconds < 540)) {
+    return "intermediate";
   }
 
+  return "beginner";
+}
+
+function hasEquipment(formData, item) {
+  return (formData.equipment || []).includes(item);
+}
+
+function getLoadLimits(formData) {
+  const age = getAgeFromDob(formData.dob) || 18;
+  const experience = getExperienceLevel(formData);
+
+  const baseSets = {
+    beginner: [8, 12],
+    intermediate: [10, 16],
+    advanced: [12, 20]
+  };
+
+  let weeklySets = baseSets[experience] || baseSets.beginner;
+  let ageLoad = "full";
+
+  if (age <= 13) {
+    ageLoad = "low-moderate";
+    weeklySets = [Math.min(weeklySets[0], 8), Math.min(weeklySets[1], 12)];
+  } else if (age <= 17) {
+    ageLoad = "moderate";
+    weeklySets = [weeklySets[0], Math.min(weeklySets[1], 16)];
+  }
+
+  return {
+    age,
+    experience,
+    ageLoad,
+    weeklySets,
+    avoidFailure: experience === "beginner" || age < 18,
+    maxHardDays: age < 18 ? 1 : formData.daysPerWeek >= 5 ? 2 : 1,
+    deloadWeek: 4
+  };
+}
+
+function safeRepTarget(maxClean, desired, fallback = 6) {
+  const max = toNumber(maxClean, 0);
+  if (!max) return fallback;
+
+  return Math.max(1, Math.min(desired, Math.floor(max * 0.7)));
+}
+
+function getSplitType(formData) {
+  if (formData.sessionLength === 30) return "full-body";
+  if (formData.sessionLength === 60) return "upper-lower";
+  return "detailed";
+}
+
+function getPrimaryEnduranceType(formData, index = 0) {
+  const types = formData.enduranceType?.length ? formData.enduranceType : ["running"];
+  return types[index % types.length];
+}
+
+function getPrimaryEnduranceGoal(formData) {
+  return formData.enduranceGoal?.[0] || "5k";
+}
+
+function getStrengthEmphasisSequence(formData, goal) {
   const days = formData.daysPerWeek;
-  const out = [];
-  let i = 0;
-  while (out.length < days) {
-    out.push({ ...slots[i % slots.length] });
-    i += 1;
+  const split = getSplitType(formData);
+
+  if (split === "full-body") {
+    return Array.from({ length: days }, () => "full");
   }
-  return out;
+
+  if (split === "upper-lower") {
+    const sequence = ["upper", "lower", "upper", "lower", "full"];
+    return sequence.slice(0, days);
+  }
+
+  if (goal === "hypertrophy") {
+    return ["push", "pull", "legs", "upper", "lower"].slice(0, days);
+  }
+
+  return ["push", "pull", "legs", "full", "upper"].slice(0, days);
 }
 
-function buildStrengthExercises(formData, emphasis, week, sessionLength) {
-  const pushVar = findVariation(PUSH_VARIATIONS, formData.pushVariation || "knee");
-  const pullVar = findVariation(PULL_VARIATIONS, formData.pullVariation || "assisted");
-  const squatVar = findVariation(SQUAT_VARIATIONS, formData.squatVariation || "regular");
+function getEnduranceSessionSequence(formData, week) {
+  const days = formData.daysPerWeek;
+  const goal = getPrimaryEnduranceGoal(formData);
+  const isDeload = week === 4;
 
-  const baseSets = sessionLength === 30 ? 2 : 3;
+  let sequence;
 
-  if (emphasis === "push") {
-    return [
-      buildExercise({
-        id: `push-main-${week}`,
-        name: pushVar.name,
-        category: "push",
-        targetType: pushVar.targetType === "seconds" ? "seconds" : "reps",
-        targets: Array.from({ length: baseSets }, () =>
-          pushVar.targetType === "seconds"
-            ? Math.max(15, Math.floor((formData.plankMax || 30) * 0.7))
-            : Math.max(1, Math.min(formData.pushupMax || 5, Math.max(3, Math.floor((formData.pushupMax || 5) * 0.7))))
-        ),
-        tempo: "Controlled down, controlled up",
-        rest: "60-90s",
-        goalLoadText: "Bodyweight. Stay 1 to 3 reps in reserve.",
-        note: "Push strength main work."
-      }),
-      buildExercise({
-        id: `push-core-${week}`,
-        name: "Plank Hold",
-        category: "core",
-        targetType: "seconds",
-        targets: Array.from({ length: 2 }, () => Math.max(15, Math.floor((formData.plankMax || 30) * 0.8))),
-        tempo: "Steady brace",
-        rest: "45-60s",
-        goalLoadText: "Bodyweight.",
-        note: "Core support for push day."
-      })
-    ];
+  if (goal === "mile" || goal === "400m" || goal === "800m") {
+    sequence = ["easy", "speed", "easy", "tempo", "easy"];
+  } else if (goal === "10k" || goal === "half-marathon" || goal === "marathon" || goal === "ultra") {
+    sequence = ["easy", "tempo", "easy", "long", "easy"];
+  } else if (goal === "sprint-tri" || goal === "olympic-tri" || goal === "half-ironman" || goal === "ironman") {
+    sequence = ["easy", "technique", "easy", "brick", "long"];
+  } else {
+    sequence = ["easy", "interval", "easy", "long", "easy"];
   }
 
-  if (emphasis === "pull") {
-    return [
-      buildExercise({
-        id: `pull-main-${week}`,
-        name: pullVar.name,
-        category: "pull",
-        targetType: pullVar.targetType === "seconds" ? "seconds" : "reps",
-        targets: Array.from({ length: baseSets }, () =>
-          pullVar.targetType === "seconds"
-            ? Math.max(10, Math.floor((formData.plankMax || 20) * 0.6))
-            : Math.max(1, Math.min(formData.pullupMax || 4, Math.max(2, Math.floor((formData.pullupMax || 4) * 0.7))))
-        ),
-        tempo: pullVar.value === "negatives" ? "Jump up, 4 sec lower" : "Controlled pull and lower",
-        rest: "60-90s",
-        loadMode: pullVar.value === "assisted" ? "assistance" : pullVar.value === "weighted" ? "load" : "normal",
-        goalLoadText: pullVar.value === "assisted"
-          ? `Assistance: ${formData.pullAssistValue || "set enough"} ${formData.pullAssistUnit || "lbs"}`
-          : "Bodyweight or chosen load.",
-        note: "Pull strength main work."
-      }),
-      buildExercise({
-        id: `pull-core-${week}`,
-        name: "Plank Hold",
-        category: "core",
-        targetType: "seconds",
-        targets: Array.from({ length: 2 }, () => Math.max(15, Math.floor((formData.plankMax || 30) * 0.8))),
-        tempo: "Steady brace",
-        rest: "45-60s",
-        goalLoadText: "Bodyweight.",
-        note: "Core support for pull day."
-      })
-    ];
+  sequence = sequence.slice(0, days);
+
+  if (isDeload) {
+    return sequence.map((item) => {
+      if (["interval", "speed", "tempo", "brick", "long"].includes(item)) return "easy";
+      return item;
+    });
+  }
+
+  return sequence;
+}
+
+function getWorkoutSlots(formData, week = 1) {
+  const goal = getPrimaryRuleGoal(formData);
+  const days = formData.daysPerWeek;
+  const slots = [];
+
+  if (goal === "hypertrophy" || goal === "strength") {
+    const sequence = getStrengthEmphasisSequence(formData, goal);
+
+    return sequence.map((emphasis) => ({
+      kind: "strength",
+      ruleGoal: goal,
+      emphasis,
+      label:
+        goal === "hypertrophy"
+          ? `${titleCase(emphasis)} Hypertrophy`
+          : `${titleCase(emphasis)} Strength`
+    }));
+  }
+
+  if (goal === "endurance") {
+    const sequence = getEnduranceSessionSequence(formData, week);
+
+    return sequence.map((sessionType, index) => {
+      const type = getPrimaryEnduranceType(formData, index);
+
+      return {
+        kind: "endurance",
+        ruleGoal: "endurance",
+        emphasis: type,
+        sessionType,
+        label: `${titleCase(type)} ${titleCase(sessionType)}`
+      };
+    });
+  }
+
+  if (goal === "tendon") {
+    return Array.from({ length: days }, (_, index) => ({
+      kind: "rehab",
+      ruleGoal: "tendon",
+      emphasis: "tendon",
+      label: `Tendon Rehab ${index + 1}`
+    }));
+  }
+
+  if (goal === "balance") {
+    return Array.from({ length: days }, (_, index) => ({
+      kind: "balance",
+      ruleGoal: "balance",
+      emphasis: "balance",
+      label: `Balance Stability ${index + 1}`
+    }));
+  }
+
+  return Array.from({ length: days }, (_, index) => ({
+    kind: "strength",
+    ruleGoal: "strength",
+    emphasis: index % 2 === 0 ? "upper" : "lower",
+    label: "General Strength"
+  }));
+}
+
+function choosePushExercise(formData) {
+  if (hasEquipment(formData, "dumbbells") || hasEquipment(formData, "full-gym")) {
+    return "Dumbbell Press";
+  }
+
+  return findVariation(PUSH_VARIATIONS, formData.pushVariation || "incline").name;
+}
+
+function choosePullExercise(formData) {
+  if (hasEquipment(formData, "dumbbells") || hasEquipment(formData, "full-gym")) {
+    return "Dumbbell Row";
+  }
+
+  if (hasEquipment(formData, "pullup-bar")) {
+    return findVariation(PULL_VARIATIONS, formData.pullVariation || "assisted").name;
+  }
+
+  if (hasEquipment(formData, "bands")) {
+    return "Band Row";
+  }
+
+  return "Prone W Raise";
+}
+
+function chooseLegExercise(formData) {
+  if (hasEquipment(formData, "dumbbells") || hasEquipment(formData, "full-gym")) {
+    return "Goblet Squat";
+  }
+
+  return findVariation(SQUAT_VARIATIONS, formData.squatVariation || "regular").name;
+}
+
+function buildStrengthExercises(formData, emphasis, week, sessionLength, ruleGoal = getPrimaryRuleGoal(formData)) {
+  const limits = getLoadLimits(formData);
+  const isHypertrophy = ruleGoal === "hypertrophy";
+  const isDeload = week === 4;
+
+  const baseSets =
+    sessionLength === 30
+      ? 2
+      : sessionLength === 60
+        ? 3
+        : 4;
+
+  const safeSets = limits.age <= 13 ? Math.min(baseSets, 3) : baseSets;
+  const finalSets = isDeload ? Math.max(1, safeSets - 1) : safeSets;
+
+  const compoundReps = isHypertrophy
+    ? safeRepTarget(formData.pushupMax, 10, 8)
+    : safeRepTarget(formData.pushupMax, 5, 5);
+
+  const pullReps = isHypertrophy
+    ? safeRepTarget(formData.pullupMax, 10, 8)
+    : safeRepTarget(formData.pullupMax, 5, 4);
+
+  const squatReps = isHypertrophy
+    ? safeRepTarget(formData.squatMax, 12, 10)
+    : safeRepTarget(formData.squatMax, 6, 6);
+
+  const rest = isHypertrophy ? "60-90s" : "2-4 min";
+  const tempo = isHypertrophy ? "Controlled reps, 1 to 3 reps in reserve" : "Clean powerful reps, no form breakdown";
+  const goalLoadText = isHypertrophy
+    ? "Hypertrophy focus: use 6-12 reps on main work and stop with 1 to 3 reps in reserve."
+    : "Strength focus: use 3-6 quality reps and rest long enough to keep form sharp.";
+
+  const push = buildExercise({
+    id: `push-${ruleGoal}-${week}`,
+    name: choosePushExercise(formData),
+    category: "push",
+    targetType: "reps",
+    targets: Array.from({ length: finalSets }, () => compoundReps),
+    tempo,
+    rest,
+    loadMode: hasEquipment(formData, "dumbbells") ? "load" : "normal",
+    goalLoadText,
+    note: isHypertrophy ? "Main push muscle-building work." : "Main push strength work."
+  });
+
+  const pull = buildExercise({
+    id: `pull-${ruleGoal}-${week}`,
+    name: choosePullExercise(formData),
+    category: "pull",
+    targetType: "reps",
+    targets: Array.from({ length: finalSets }, () => pullReps),
+    tempo,
+    rest,
+    loadMode: hasEquipment(formData, "dumbbells") ? "load" : formData.pullVariation === "assisted" ? "assistance" : "normal",
+    goalLoadText,
+    note: isHypertrophy ? "Main pull muscle-building work." : "Main pull strength work."
+  });
+
+  const legs = buildExercise({
+    id: `legs-${ruleGoal}-${week}`,
+    name: chooseLegExercise(formData),
+    category: "legs",
+    targetType: "reps",
+    targets: Array.from({ length: finalSets }, () => squatReps),
+    tempo,
+    rest,
+    loadMode: hasEquipment(formData, "dumbbells") ? "load" : "normal",
+    goalLoadText,
+    note: isHypertrophy ? "Main lower body muscle-building work." : "Main lower body strength work."
+  });
+
+  const core = buildExercise({
+    id: `core-${ruleGoal}-${week}`,
+    name: "Plank Hold",
+    category: "core",
+    targetType: "seconds",
+    targets: Array.from({ length: 2 }, () =>
+      Math.max(15, Math.floor((formData.plankMax || 30) * (isDeload ? 0.55 : 0.7)))
+    ),
+    tempo: "Steady brace",
+    rest: "45-60s",
+    goalLoadText: "Stop before form breaks.",
+    note: "Core support work."
+  });
+
+  if (emphasis === "push") return [push, core];
+  if (emphasis === "pull") return [pull, core];
+  if (emphasis === "legs" || emphasis === "lower") return [legs, core];
+  if (emphasis === "upper") return [push, pull, core];
+
+  return [push, legs, pull, core];
+}
+
+function buildEnduranceExercises(formData, type, week, sessionType = "easy") {
+  const limits = getLoadLimits(formData);
+  const baseMinutes = Math.max(10, parseFirstNumber(formData.runDuration) || Math.min(25, formData.sessionLength));
+  const isDeload = week === 4;
+
+  let target;
+  let note;
+  let tempo;
+  let rest = "Continuous";
+
+  if (sessionType === "easy" || sessionType === "technique") {
+    target = Math.round(baseMinutes * (isDeload ? 0.75 : 1 + (week - 1) * 0.05));
+    tempo = "Conversational pace";
+    note = sessionType === "technique"
+      ? `Technique-focused ${type} session. Keep it controlled.`
+      : `Easy ${type} session. This builds the aerobic base.`;
+  } else if (sessionType === "interval" || sessionType === "speed") {
+    target = Math.round(baseMinutes * 0.7);
+    tempo = sessionType === "speed" ? "Fast but controlled repeats" : "200m to 400m repeat effort";
+    rest = "Recover fully between repeats";
+    note = `Hard ${type} work. Keep this limited. Most weekly work should still be easy.`;
+  } else if (sessionType === "tempo") {
+    target = Math.round(baseMinutes * 0.85);
+    tempo = "Sustained moderate-hard effort";
+    note = `Tempo ${type} session. Controlled discomfort, not all-out.`;
+  } else if (sessionType === "long" || sessionType === "brick") {
+    target = Math.round(baseMinutes * (1.1 + (week - 1) * 0.06));
+    tempo = "Smooth steady pace";
+    note = sessionType === "brick"
+      ? `Brick-style session. Keep intensity low and transitions simple.`
+      : `Long ${type} session. Build endurance without racing it.`;
+  } else {
+    target = baseMinutes;
+    tempo = "Smooth steady pace";
+    note = `${titleCase(type)} endurance session.`;
+  }
+
+  if (limits.age <= 13) {
+    target = Math.min(target, 45);
+  } else if (limits.age <= 17) {
+    target = Math.min(target, 60);
+  } else {
+    target = Math.min(target, 90);
   }
 
   return [
     buildExercise({
-      id: `legs-main-${week}`,
-      name: squatVar.name,
-      category: "legs",
-      targetType: "reps",
-      targets: Array.from({ length: baseSets }, () => Math.max(3, Math.min(formData.squatMax || 8, Math.max(5, Math.floor((formData.squatMax || 8) * 0.7))))),
-      tempo: "3 sec down, controlled up",
-      rest: "60-90s",
-      loadMode: formData.equipment.includes("dumbbells") ? "load" : "normal",
-      goalLoadText: formData.equipment.includes("dumbbells") ? "Use load only if form stays clean." : "Bodyweight only.",
-      note: "Leg strength main work."
-    }),
-    buildExercise({
-      id: `legs-core-${week}`,
-      name: "Wall Sit",
-      category: "legs",
-      targetType: "seconds",
-      targets: Array.from({ length: 2 }, () => Math.max(15, Math.floor((formData.wallSit || 30) * 0.8) || 20)),
-      tempo: "Steady hold",
-      rest: "45-60s",
-      goalLoadText: "Bodyweight.",
-      note: "Leg endurance finisher."
-    })
-  ];
-}
-
-function buildEnduranceExercises(formData, type, week) {
-  const baseMinutes = Math.max(10, parseFirstNumber(formData.runDuration) || 20);
-  const target = Math.min(90, Math.round(baseMinutes * (1 + (week - 1) * 0.08)));
-
-  return [
-    buildExercise({
-      id: `endurance-${type}-${week}`,
-      name: `${titleCase(type)} Engine`,
+      id: `endurance-${type}-${sessionType}-${week}`,
+      name: `${titleCase(type)} ${titleCase(sessionType)}`,
       category: "endurance",
       targetType: "minutes",
-      targets: [target],
-      tempo: "Smooth steady pace",
-      rest: "Continuous",
-      goalLoadText: `Log total ${type} work.`,
-      note: `${titleCase(type)} endurance day.`
+      targets: [Math.max(8, target)],
+      tempo,
+      rest,
+      goalLoadText: "Endurance structure: mostly easy work, limited hard work.",
+      note
     })
   ];
+}
+
+function buildRehabExercises(formData, week, sessionLength) {
+  const pain = toNumber(formData.painLevel || formData.pain || 0, 0);
+  const regress = pain > 5;
+  const isDeload = week === 4;
+
+  const holdSeconds = regress ? 30 : isDeload ? 30 : 45;
+  const reps = regress ? 10 : 15;
+  const sets = sessionLength === 30 ? 2 : 3;
+
+  return [
+    buildExercise({
+      id: `rehab-isometric-${week}`,
+      name: "Pain-Free Isometric Hold",
+      category: "rehab",
+      targetType: "seconds",
+      targets: Array.from({ length: sets }, () => holdSeconds),
+      tempo: "Hold steady without sharp pain",
+      rest: "60-90s",
+      goalLoadText: "Pain ≤3/10 is acceptable. Pain >5/10 means regress.",
+      note: regress ? "Pain is high, so this session is regressed." : "Build tendon tolerance with controlled holds."
+    }),
+    buildExercise({
+      id: `rehab-eccentric-${week}`,
+      name: "Slow Eccentric Control",
+      category: "rehab",
+      targetType: "reps",
+      targets: Array.from({ length: sets }, () => reps),
+      tempo: "3-5 sec eccentric",
+      rest: "60-90s",
+      goalLoadText: "Increase load slowly only if pain stays controlled.",
+      note: "Tendon rehab work. Slow control matters more than intensity."
+    })
+  ];
+}
+
+function buildBalanceExercises(formData, week, sessionLength) {
+  const experience = getExperienceLevel(formData);
+  const sets = sessionLength === 30 ? 2 : 3;
+
+  let level = "static";
+  if (experience === "intermediate") level = "controlled";
+  if (experience === "advanced") level = "dynamic";
+
+  const exerciseName =
+    level === "static"
+      ? "Single-Leg Stand"
+      : level === "controlled"
+        ? "Single-Leg Reach"
+        : "Dynamic Single-Leg Balance Drill";
+
+  return [
+    buildExercise({
+      id: `balance-main-${week}`,
+      name: exerciseName,
+      category: "balance",
+      targetType: "seconds",
+      targets: Array.from({ length: sets }, () => 30),
+      tempo: "Slow and controlled",
+      rest: "30-60s",
+      goalLoadText: "Progression: static → controlled movement → unstable → dynamic.",
+      note: "Balance work. Regress if control breaks."
+    }),
+    buildExercise({
+      id: `balance-control-${week}`,
+      name: "Slow Control Drill",
+      category: "balance",
+      targetType: "reps",
+      targets: Array.from({ length: sets }, () => 8),
+      tempo: "3 sec down, pause, controlled return",
+      rest: "30-60s",
+      goalLoadText: "Quality beats difficulty.",
+      note: "Motor control and stability work."
+    })
+  ];
+}
+
+function getLikelyLimiter(formData) {
+  const goal = getPrimaryRuleGoal(formData);
+
+  if (goal === "endurance") {
+    if (!formData.runDuration || !formData.runDistance) return "aerobic base";
+    if (parseTimeToSeconds(formData.mileTime) && parseTimeToSeconds(formData.mileTime) > 600) return "speed ceiling";
+    return "aerobic base or pacing";
+  }
+
+  if (goal === "hypertrophy") return "volume or load mismatch";
+  if (goal === "strength") return "technique or neural fatigue";
+  if (goal === "tendon") return "load tolerance";
+  if (goal === "balance") return "motor control";
+
+  return "training consistency";
+}
+
+function getAdjustmentRule(formData) {
+  const goal = getPrimaryRuleGoal(formData);
+
+  if (goal === "hypertrophy") {
+    return "If progress stalls, adjust only one factor: add load first, reduce volume if fatigue is high, or add 2 sets only if recovery is good.";
+  }
+
+  if (goal === "strength") {
+    return "If progress stalls, adjust only one factor: increase rest, reduce frequency, or lower load if form breaks.";
+  }
+
+  if (goal === "endurance") {
+    return "If early fatigue appears, increase easy volume; if speed is the limiter, add limited intervals.";
+  }
+
+  if (goal === "tendon") {
+    return "If pain increases above 5/10, regress immediately; if pain stays ≤3/10, increase load slowly.";
+  }
+
+  if (goal === "balance") {
+    return "If control breaks, regress the drill; if stable, progress to slow movement before unstable surfaces.";
+  }
+
+  return "Adjust only the limiting factor.";
 }
 
 function buildPlan(rawFormData) {
   const formData = normalizeFormData(rawFormData);
   const age = getAgeFromDob(formData.dob);
+  const goal = getPrimaryRuleGoal(formData);
+  const limits = getLoadLimits(formData);
   const weeks = [];
   const startDate = formData.startDate || toISODate(new Date());
 
@@ -782,26 +1139,34 @@ function buildPlan(rawFormData) {
       const label = String.fromCharCode(65 + index);
       const date = toISODate(addDays(new Date(`${startDate}T12:00:00`), ((week - 1) * 7) + index));
 
-      const warmup = buildWarmup(slot.kind);
-      const cooldown = buildCooldown(slot.kind);
-      const exercises =
-        slot.kind === "strength"
-          ? buildStrengthExercises(formData, slot.emphasis, week, formData.sessionLength)
-          : slot.kind === "endurance"
-            ? buildEnduranceExercises(formData, slot.emphasis, week)
-            : [
-                buildExercise({
-                  id: `mobility-${week}`,
-                  name: "Mobility Flow",
-                  category: "mobility",
-                  targetType: "minutes",
-                  targets: [15],
-                  tempo: "Slow and controlled",
-                  rest: "Continuous",
-                  goalLoadText: "No load needed.",
-                  note: "Mobility and recovery day."
-                })
-              ];
+      const warmup = buildWarmup(slot.kind === "endurance" ? "endurance" : "strength");
+      const cooldown = buildCooldown(slot.kind === "endurance" ? "endurance" : "strength");
+
+      let exercises;
+
+      if (slot.kind === "strength") {
+        exercises = buildStrengthExercises(formData, slot.emphasis, week, formData.sessionLength, slot.ruleGoal);
+      } else if (slot.kind === "endurance") {
+        exercises = buildEnduranceExercises(formData, slot.emphasis, week, slot.sessionType);
+      } else if (slot.kind === "rehab") {
+        exercises = buildRehabExercises(formData, week, formData.sessionLength);
+      } else if (slot.kind === "balance") {
+        exercises = buildBalanceExercises(formData, week, formData.sessionLength);
+      } else {
+        exercises = [
+          buildExercise({
+            id: `mobility-${week}`,
+            name: "Mobility Flow",
+            category: "mobility",
+            targetType: "minutes",
+            targets: [15],
+            tempo: "Slow and controlled",
+            rest: "Continuous",
+            goalLoadText: "No load needed.",
+            note: "Recovery and mobility day."
+          })
+        ];
+      }
 
       return {
         id: `week-${week}-day-${label}`,
@@ -810,59 +1175,73 @@ function buildPlan(rawFormData) {
         name: slot.label,
         date,
         dateLabel: formatDateLabel(date),
-        description:
-          slot.kind === "strength"
-            ? `Strength focus on ${slot.emphasis}`
-            : slot.kind === "endurance"
-              ? `${titleCase(slot.emphasis)} endurance day`
-              : "Mobility and recovery day",
+        description: `${titleCase(goal)} rule engine • ${safeText(slot.sessionType || slot.emphasis)}`,
         duration: formData.sessionLength,
         warmup,
         exercises,
         cooldown,
         isDeload: week === 4,
-        includesHypertrophy: slot.kind === "strength"
+        includesHypertrophy: goal === "hypertrophy",
+        ruleGoal: goal,
+        ageLoad: limits.ageLoad,
+        experience: limits.experience
       };
     });
 
     weeks.push({
       week,
       label: `Week ${week}`,
-      note: week === 4 ? "Deload week. Reduced stress to protect recovery." : week === 3 ? "Highest training week before deload." : "Build week.",
+      note: week === 4
+        ? "Deload week. Reduced stress to protect recovery."
+        : week === 3
+          ? "Highest training week before deload."
+          : "Build week.",
       workouts
     });
   }
 
   return {
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
+    ruleGoal: goal,
+    likelyLimiter: getLikelyLimiter(formData),
+    adjustmentRule: getAdjustmentRule(formData),
+    loadLimits: limits,
     profile: {
-  dob: formData.dob,
-  age,
-  ageBand: getAgeBand(age),
-  safetyMode: getSafetyMode(age || 18),
-  focus: formData.focus,
-  enduranceType: formData.enduranceType,
-  enduranceGoal: formData.enduranceGoal || [],
-  equipment: formData.equipment,
-  strengthGoals: formData.strengthGoals,
-  pushSkill: formData.pushSkill,
-  pullSkill: formData.pullSkill,
-  gender: formData.gender || "",
-  weight: formData.weight || "",
-  weightUnit: formData.weightUnit || "kg",
-  height: formData.height || "",
-  heightUnit: formData.heightUnit || "cm",
-  daysPerWeek: formData.daysPerWeek,
-  sessionLength: formData.sessionLength
+      dob: formData.dob,
+      age,
+      ageBand: getAgeBand(age),
+      safetyMode: getSafetyMode(age || 18),
+      focus: formData.focus,
+      enduranceType: formData.enduranceType,
+      enduranceGoal: formData.enduranceGoal || [],
+      equipment: formData.equipment,
+      strengthGoals: formData.strengthGoals,
+      pushSkill: formData.pushSkill,
+      pullSkill: formData.pullSkill,
+      gender: formData.gender || "",
+      weight: formData.weight || "",
+      weightUnit: formData.weightUnit || "kg",
+      height: formData.height || "",
+      heightUnit: formData.heightUnit || "cm",
+      daysPerWeek: formData.daysPerWeek,
+      sessionLength: formData.sessionLength,
+      experience: limits.experience,
+      selectedRuleEngine: goal
     },
     records: {
       mileTime: safeText(formData.mileTime, "Not logged yet"),
       longestRun: safeText(formData.runDuration, "Not logged yet"),
       longestRunDistance: safeText(formData.runDistance, "Not logged yet"),
-      pushBest: formData.pushVariation ? `${findVariation(PUSH_VARIATIONS, formData.pushVariation).name}${formData.pushupMax ? ` • ${formData.pushupMax} reps` : ""}` : "Not logged yet",
-      pullBest: formData.pullVariation ? `${findVariation(PULL_VARIATIONS, formData.pullVariation).name}${formData.pullupMax ? ` • ${formData.pullupMax} reps` : formData.pullVariation === "assisted" && formData.pullAssistValue ? ` • ${formData.pullAssistValue} ${formData.pullAssistUnit}` : ""}` : "Not logged yet",
-      squatBest: formData.squatVariation ? `${findVariation(SQUAT_VARIATIONS, formData.squatVariation).name}${formData.squatMax ? ` • ${formData.squatMax} reps` : ""}` : "Not logged yet",
+      pushBest: formData.pushVariation
+        ? `${findVariation(PUSH_VARIATIONS, formData.pushVariation).name}${formData.pushupMax ? ` • ${formData.pushupMax} reps` : ""}`
+        : "Not logged yet",
+      pullBest: formData.pullVariation
+        ? `${findVariation(PULL_VARIATIONS, formData.pullVariation).name}${formData.pullupMax ? ` • ${formData.pullupMax} reps` : formData.pullVariation === "assisted" && formData.pullAssistValue ? ` • ${formData.pullAssistValue} ${formData.pullAssistUnit}` : ""}`
+        : "Not logged yet",
+      squatBest: formData.squatVariation
+        ? `${findVariation(SQUAT_VARIATIONS, formData.squatVariation).name}${formData.squatMax ? ` • ${formData.squatMax} reps` : ""}`
+        : "Not logged yet",
       plankBest: formData.plankMax ? `${formData.plankMax} sec` : "Not logged yet",
       wallSitBest: formData.wallSit ? `${formData.wallSit} sec` : "Not logged yet"
     },
