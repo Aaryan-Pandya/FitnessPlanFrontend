@@ -5,6 +5,8 @@ const STORAGE_KEYS = {
   currentPlanCache: "fitnessplan_current_plan_cache"
 };
 
+const PLANNER_DRAFT_VERSION = 3;
+
 const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
 
 document.addEventListener("DOMContentLoaded", async () => {
