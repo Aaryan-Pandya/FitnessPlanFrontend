@@ -229,7 +229,6 @@ function getPlannerDraft() {
     return null;
   }
 }
-}
 
 function cachePlan(plan) {
   localStorage.setItem(STORAGE_KEYS.currentPlanCache, JSON.stringify(plan));
