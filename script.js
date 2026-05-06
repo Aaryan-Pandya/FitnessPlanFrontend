@@ -1805,21 +1805,32 @@ qsa("[data-gender]").forEach((btn) => {
 });
 
   qsa("input, select").forEach((input) => {
-    input.addEventListener("change", () => {
-      syncFromInputs();
-      updateAgePanels();
-      savePlannerDraft(formData);
-      refreshPreview();
-    });
-
-    input.addEventListener("input", () => {
-      syncFromInputs();
-      updateAgePanels();
-      savePlannerDraft(formData);
-      refreshPreview();
-    });
+  input.addEventListener("change", () => {
+    syncFromInputs();
+    updateAgePanels();
+    savePlannerDraft(formData);
+    refreshPreview();
   });
 
+  input.addEventListener("input", () => {
+    syncFromInputs();
+    updateAgePanels();
+    savePlannerDraft(formData);
+    refreshPreview();
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+
+    if (generateBtn && !generateBtn.classList.contains("hidden")) {
+      generateBtn.click();
+    } else if (nextBtn && !nextBtn.classList.contains("hidden")) {
+      nextBtn.click();
+    }
+  });
+});
   backBtn?.addEventListener("click", () => {
     currentIndex -= 1;
     updateStep();
