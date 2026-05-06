@@ -1843,13 +1843,32 @@ qsa("[data-gender]").forEach((btn) => {
   });
 
   generateBtn?.addEventListener("click", async () => {
-    if (!validateStep()) return;
+  try {
+    if (!validateStep()) {
+      const message = statusBox?.textContent || "Fix the current step before generating.";
+      alert(message);
+      return;
+    }
+
     syncFromInputs();
+
     const plan = buildPlan(formData);
+
+    if (!plan || !plan.weeks || !plan.weeks.length) {
+      throw new Error("Plan could not be built. Check goal, days, and session length.");
+    }
+
     await saveCurrentPlan(plan);
+
     setStatus(statusBox, "Plan generated and saved.", "ok");
+
     window.location.href = "./dashboard.html";
-  });
+  } catch (error) {
+    const message = error?.message || "Generate plan failed.";
+    setStatus(statusBox, message, "bad");
+    alert(message);
+  }
+});
 
   applyDraftToInputs();
   updateAgePanels();
