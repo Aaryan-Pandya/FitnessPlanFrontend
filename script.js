@@ -10,6 +10,7 @@ const PLANNER_DRAFT_VERSION = 3;
 const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
 
 const FITNESS_DATASET_URL = "./public/fitnessplan_all.jsonl";
+let fitnessExamplesCache = [];
 async function loadFitnessExamples() {
   const response = await fetch(FITNESS_DATASET_URL);
 
