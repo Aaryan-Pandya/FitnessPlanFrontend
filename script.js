@@ -1532,7 +1532,13 @@ async function initPlanner() {
 loadFitnessExamples()
   .then((examples) => {
     fitnessExamplesCache = examples;
-    setStatus(statusBox, `Dataset ready: ${examples.length} examples.`, "ok");
+    const matchingExamples = getRelevantFitnessExamples(formData, 5);
+
+setStatus(
+  statusBox,
+  `Dataset ready: ${examples.length} examples. Matching examples ready: ${matchingExamples.length}.`,
+  "ok"
+);
   })
   .catch((error) => {
     fitnessExamplesCache = [];
