@@ -2091,10 +2091,16 @@ qsa("[data-gender]").forEach((btn) => {
 
     // Save the prompt for testing. Later this goes to the backend/Gemini.
     localStorage.setItem("fitnessplan_ai_prompt_test", aiPrompt);
-    // Remove Line
-    alert(`AI prompt prepared: ${aiPrompt.length} characters`);
-    // Keep the original structured workout plan format.
-    const plan = buildPlan(formData);
+
+// TEMP DEBUG ALERT: remove before final launch.
+alert(`AI prompt prepared: ${aiPrompt.length} characters`);
+
+const aiBackendTest = await sendAiPromptToBackend(aiPrompt);
+
+// TEMP DEBUG ALERT: remove before final launch.
+alert(`Backend received AI prompt: ${aiBackendTest.promptLength} characters`);
+
+const plan = buildPlan(formData);
 
     if (!plan || !plan.weeks || !plan.weeks.length) {
       throw new Error("Plan could not be built. Check goal, days, and session length.");
