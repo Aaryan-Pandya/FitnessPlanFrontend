@@ -206,6 +206,26 @@ Now generate the FitnessPlan result.
 `.trim();
 }
 
+async function sendAiPromptToBackend(aiPrompt) {
+  const response = await fetch(`${API_BASE}/ai-plan`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt: aiPrompt
+    })
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || "AI backend failed.");
+  }
+
+  return result;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const page = document.body?.dataset?.page || "";
   if (page === "account") {
