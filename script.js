@@ -100,7 +100,7 @@ function getRelevantFitnessExamples(formData, limit = 5) {
     .map((item) => item.example);
 }
 
-  function buildFitnessAiPrompt(formData) {
+function buildFitnessAiPrompt(formData) {
   const matchingExamples = getRelevantFitnessExamples(formData, 5);
 
   const examplesText = matchingExamples
@@ -123,7 +123,7 @@ Rules:
 - Use the user's age, experience level, equipment, days per week, and goal.
 - Keep the plan age appropriate.
 - For teens, avoid 1RM testing, extreme dieting, unsafe max lifting, or aggressive cuts.
-- Match the user's equipment.
+- Match the user's equipment exactly.
 - Include workouts, sets, reps, rest, progression, nutrition guidance, and safety notes.
 - Do not copy examples word for word.
 - Use the examples only as style and structure guidance.
@@ -137,16 +137,6 @@ ${examplesText}
 
 Now generate the final FitnessPlan result.
 `.trim();
-}
-
-  return [...fitnessExamplesCache]
-    .map((example) => ({
-      example,
-      score: scoreFitnessExample(example, formData)
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((item) => item.example);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
