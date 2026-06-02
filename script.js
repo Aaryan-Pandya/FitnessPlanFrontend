@@ -2066,15 +2066,30 @@ qsa("[data-gender]").forEach((btn) => {
 
     syncFromInputs();
 
+    // Build the AI prompt only after the user finishes the planner.
+    const aiPrompt = buildFitnessAiPrompt(formData);
+
+    // Save the prompt for testing. Later this goes to the backend/Gemini.
+    localStorage.setItem("fitnessplan_ai_prompt_test", aiPrompt);
+
+    // Keep the original structured workout plan format.
     const plan = buildPlan(formData);
 
     if (!plan || !plan.weeks || !plan.weeks.length) {
       throw new Error("Plan could not be built. Check goal, days, and session length.");
     }
 
+    // Store prompt info without changing the dashboard layout.
+    plan.aiPromptPreview = aiPrompt.slice(0, 1200);
+    plan.aiPromptLength = aiPrompt.length;
+
     await saveCurrentPlan(plan);
 
-    setStatus(statusBox, "Plan generated and saved.", "ok");
+    setStatus(
+      statusBox,
+      `Plan generated and saved. AI prompt prepared: ${aiPrompt.length} characters.`,
+      "ok"
+    );
 
     window.location.href = "./dashboard.html";
   } catch (error) {
