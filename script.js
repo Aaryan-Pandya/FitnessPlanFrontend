@@ -9,6 +9,8 @@ const PLANNER_DRAFT_VERSION = 3;
 
 const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
 
+const FITNESS_DATASET_URL = "./public/fitnessplan_all.jsonl";
+
 document.addEventListener("DOMContentLoaded", async () => {
   const page = document.body?.dataset?.page || "";
   if (page === "account") {
