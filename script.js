@@ -18,6 +18,15 @@ async function loadFitnessExamples() {
     throw new Error("Could not load fitness dataset.");
   }
 
+  const text = await response.text();
+
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
   function getAgeFromDobForExamples(dob) {
   if (!dob) return "";
 
