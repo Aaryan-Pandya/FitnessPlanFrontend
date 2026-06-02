@@ -1456,6 +1456,13 @@ async function initAccount() {
 
 async function initPlanner() {
   const statusBox = byId("plannerStatus");
+  loadFitnessExamples()
+  .then((examples) => {
+    setStatus(statusBox, `Dataset loaded: ${examples.length} examples.`, "ok");
+  })
+  .catch((error) => {
+    setStatus(statusBox, error.message, "bad");
+  });
   const progressFill = byId("plannerStepProgress");
   const backBtn = byId("plannerBackBtn");
   const nextBtn = byId("plannerNextBtn");
