@@ -1574,6 +1574,8 @@ loadFitnessExamples()
     fitnessExamplesCache = examples;
     const matchingExamples = getRelevantFitnessExamples(formData, 5);
 
+const aiPrompt = buildFitnessAiPrompt(formData);
+    
 setStatus(
   statusBox,
   `Dataset ready: ${examples.length} examples. Matching examples ready: ${matchingExamples.length}.`,
