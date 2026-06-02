@@ -1457,16 +1457,13 @@ async function initAccount() {
 
 async function initPlanner() {
   const statusBox = byId("plannerStatus");
-  loadFitnessExamples()
+loadFitnessExamples()
   .then((examples) => {
     fitnessExamplesCache = examples;
     setStatus(statusBox, `Dataset ready: ${examples.length} examples.`, "ok");
   })
   .catch((error) => {
     fitnessExamplesCache = [];
-    setStatus(statusBox, error.message, "bad");
-  });
-  .catch((error) => {
     setStatus(statusBox, error.message, "bad");
   });
   const progressFill = byId("plannerStepProgress");
