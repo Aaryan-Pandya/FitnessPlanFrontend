@@ -90,6 +90,45 @@ function getRelevantFitnessExamples(formData, limit = 5) {
     return [];
   }
 
+  function buildFitnessAiPrompt(formData) {
+  const matchingExamples = getRelevantFitnessExamples(formData, 5);
+
+  const examplesText = matchingExamples
+    .map((example, index) => {
+      return `Example ${index + 1}:
+Input:
+${example.text_input || ""}
+
+Output:
+${example.output || ""}`;
+    })
+    .join("\n\n---\n\n");
+
+  return `
+You are FitnessPlan's planning assistant.
+
+Generate a safe, useful fitness plan using the user's answers and the examples below.
+
+Rules:
+- Use the user's age, experience level, equipment, days per week, and goal.
+- Keep the plan age appropriate.
+- For teens, avoid 1RM testing, extreme dieting, unsafe max lifting, or aggressive cuts.
+- Match the user's equipment.
+- Include workouts, sets, reps, rest, progression, nutrition guidance, and safety notes.
+- Do not copy examples word for word.
+- Use the examples only as style and structure guidance.
+- Keep the plan practical and clear.
+
+User answers:
+${JSON.stringify(formData, null, 2)}
+
+Relevant examples:
+${examplesText}
+
+Now generate the final FitnessPlan result.
+`.trim();
+}
+
   return [...fitnessExamplesCache]
     .map((example) => ({
       example,
