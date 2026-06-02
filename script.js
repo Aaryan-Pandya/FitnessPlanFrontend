@@ -18,6 +18,78 @@ async function loadFitnessExamples() {
     throw new Error("Could not load fitness dataset.");
   }
 
+  function getAgeFromDobForExamples(dob) {
+  if (!dob) return "";
+
+  const birthDate = new Date(dob);
+  const today = new Date();
+
+  if (Number.isNaN(birthDate.getTime())) return "";
+
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+
+  return String(age);
+}
+
+function getExampleSearchTerms(formData) {
+  const terms = [];
+
+  const age = getAgeFromDobForExamples(formData.dob);
+  const focus = Array.isArray(formData.focus) ? formData.focus.join(" ") : "";
+  const equipment = Array.isArray(formData.equipment) ? formData.equipment.join(" ") : "";
+  const days = formData.daysPerWeek || formData.days || "";
+  const experience = formData.experience || "";
+
+  if (age) terms.push(age);
+  if (focus) terms.push(focus);
+  if (equipment) terms.push(equipment);
+  if (days) terms.push(String(days));
+  if (experience) terms.push(experience);
+
+  return terms
+    .join(" ")
+    .toLowerCase()
+    .replaceAll("-", " ");
+}
+
+function scoreFitnessExample(example, formData) {
+  const exampleText = `${example.text_input || ""} ${example.output || ""}`
+    .toLowerCase()
+    .replaceAll("-", " ");
+
+  const searchTerms = getExampleSearchTerms(formData)
+    .split(/\s+/)
+    .filter(Boolean);
+
+  let score = 0;
+
+  searchTerms.forEach((term) => {
+    if (exampleText.includes(term)) score += 1;
+  });
+
+  return score;
+}
+
+function getRelevantFitnessExamples(formData, limit = 5) {
+  if (!Array.isArray(fitnessExamplesCache) || !fitnessExamplesCache.length) {
+    return [];
+  }
+
+  return [...fitnessExamplesCache]
+    .map((example) => ({
+      example,
+      score: scoreFitnessExample(example, formData)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.example);
+}
+
   const text = await response.text();
 
   return text
