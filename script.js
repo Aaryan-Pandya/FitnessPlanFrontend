@@ -2098,9 +2098,18 @@ alert(`AI prompt prepared: ${aiPrompt.length} characters`);
 const aiBackendTest = await sendAiPromptToBackend(aiPrompt);
 
 // TEMP DEBUG ALERT: remove before final launch.
-alert(`Backend received AI prompt: ${aiBackendTest.promptLength} characters`);
+alert(
+  `Backend received AI prompt: ${aiBackendTest.promptLength} characters. AI response: ${
+    aiBackendTest.text ? aiBackendTest.text.length : 0
+  } characters.`
+);
 
 const plan = buildPlan(formData);
+
+// Store Gemini output without changing the dashboard layout yet.
+plan.aiGeneratedText = aiBackendTest.text || "";
+plan.aiModel = aiBackendTest.model || "";
+plan.aiMode = aiBackendTest.mode || "";
 
     if (!plan || !plan.weeks || !plan.weeks.length) {
       throw new Error("Plan could not be built. Check goal, days, and session length.");
