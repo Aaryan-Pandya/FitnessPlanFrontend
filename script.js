@@ -10,6 +10,21 @@ const PLANNER_DRAFT_VERSION = 3;
 const API_BASE = "https://fitnessplan-api.cosmowind2013.workers.dev";
 
 const FITNESS_DATASET_URL = "./public/fitnessplan_all.jsonl";
+async function loadFitnessExamples() {
+  const response = await fetch(FITNESS_DATASET_URL);
+
+  if (!response.ok) {
+    throw new Error("Could not load fitness dataset.");
+  }
+
+  const text = await response.text();
+
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   const page = document.body?.dataset?.page || "";
