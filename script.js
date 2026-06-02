@@ -2071,7 +2071,7 @@ qsa("[data-gender]").forEach((btn) => {
 
     // Save the prompt for testing. Later this goes to the backend/Gemini.
     localStorage.setItem("fitnessplan_ai_prompt_test", aiPrompt);
-
+    alert(`AI prompt prepared: ${aiPrompt.length} characters`);
     // Keep the original structured workout plan format.
     const plan = buildPlan(formData);
 
