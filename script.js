@@ -1459,8 +1459,13 @@ async function initPlanner() {
   const statusBox = byId("plannerStatus");
   loadFitnessExamples()
   .then((examples) => {
-    setStatus(statusBox, `Dataset loaded: ${examples.length} examples.`, "ok");
+    fitnessExamplesCache = examples;
+    setStatus(statusBox, `Dataset ready: ${examples.length} examples.`, "ok");
   })
+  .catch((error) => {
+    fitnessExamplesCache = [];
+    setStatus(statusBox, error.message, "bad");
+  });
   .catch((error) => {
     setStatus(statusBox, error.message, "bad");
   });
