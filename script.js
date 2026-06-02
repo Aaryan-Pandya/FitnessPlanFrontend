@@ -90,6 +90,16 @@ function getRelevantFitnessExamples(formData, limit = 5) {
     return [];
   }
 
+  return [...fitnessExamplesCache]
+    .map((example) => ({
+      example,
+      score: scoreFitnessExample(example, formData)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.example);
+}
+
   function buildFitnessAiPrompt(formData) {
   const matchingExamples = getRelevantFitnessExamples(formData, 5);
 
