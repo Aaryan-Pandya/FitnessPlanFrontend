@@ -2179,6 +2179,12 @@ plan.aiMode = aiBackendTest.mode || "";
       "ok"
     );
 
+    setAiProgress(
+  100,
+  "Done.",
+  "Opening your dashboard."
+);
+    
     window.location.href = "./dashboard.html";
   } catch (error) {
     const message = error?.message || "Generate plan failed.";
