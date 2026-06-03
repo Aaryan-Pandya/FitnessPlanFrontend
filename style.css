@@ -2154,3 +2154,53 @@ body::after {
   color: #ffffff !important;
   box-shadow: 0 10px 24px rgba(125, 255, 69, 0.18) !important;
 }
+
+/* ===== AI Progress Bar ===== */
+
+.ai-progress-box {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid rgba(183, 255, 56, 0.2);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(125, 255, 69, 0.12), transparent 32%),
+    rgba(5, 12, 24, 0.92);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+}
+
+.ai-progress-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 800;
+  color: #eef3ff;
+}
+
+.ai-progress-track {
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(183, 255, 56, 0.16);
+}
+
+.ai-progress-fill {
+  width: 0%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2e77ff, #7dff45);
+  box-shadow: 0 0 24px rgba(125, 255, 69, 0.35);
+  transition: width 0.45s ease;
+}
+
+.ai-progress-detail {
+  margin: 12px 0 0;
+  color: #cfd7e6;
+  font-size: 0.95rem;
+}
+
+.hidden {
+  display: none !important;
+}
