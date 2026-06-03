@@ -206,6 +206,29 @@ Now generate the FitnessPlan result.
 `.trim();
 }
 
+function setAiProgress(percent, label, detail) {
+  const box = document.getElementById("aiProgressBox");
+  const fill = document.getElementById("aiProgressFill");
+  const labelEl = document.getElementById("aiProgressLabel");
+  const percentEl = document.getElementById("aiProgressPercent");
+  const detailEl = document.getElementById("aiProgressDetail");
+
+  if (!box || !fill || !labelEl || !percentEl || !detailEl) return;
+
+  const safePercent = Math.max(0, Math.min(100, percent));
+
+  box.classList.remove("hidden");
+  fill.style.width = `${safePercent}%`;
+  labelEl.textContent = label;
+  percentEl.textContent = `${safePercent}%`;
+  detailEl.textContent = detail;
+}
+
+function hideAiProgress() {
+  const box = document.getElementById("aiProgressBox");
+  if (box) box.classList.add("hidden");
+}
+
 async function sendAiPromptToBackend(aiPrompt) {
   const response = await fetch(`${API_BASE}/ai-plan`, {
     method: "POST",
