@@ -2110,15 +2110,38 @@ qsa("[data-gender]").forEach((btn) => {
     syncFromInputs();
 
     // Build the AI prompt only after the user finishes the planner.
-    const aiPrompt = buildFitnessAiPrompt(formData);
+    setAiProgress(
+  10,
+  "Preparing AI coach...",
+  "FitnessPlan is reading your planner answers."
+);
 
-    // Save the prompt for testing. Later this goes to the backend/Gemini.
-    localStorage.setItem("fitnessplan_ai_prompt_test", aiPrompt);
+const aiPrompt = buildFitnessAiPrompt(formData);
+
+localStorage.setItem("fitnessplan_ai_prompt_test", aiPrompt);
+
+setAiProgress(
+  35,
+  "Building AI prompt...",
+  "Matching your profile with the best training examples."
+);
 
 // TEMP DEBUG ALERT: remove before final launch.
 alert(`AI prompt prepared: ${aiPrompt.length} characters`);
 
+setAiProgress(
+  60,
+  "Sending to AI...",
+  "Gemini is reviewing the plan rules, safety notes, and examples."
+);
+
 const aiBackendTest = await sendAiPromptToBackend(aiPrompt);
+
+setAiProgress(
+  85,
+  "Creating final plan...",
+  "FitnessPlan is combining the AI response with your structured workout format."
+);
 
 // TEMP DEBUG ALERT: remove before final launch.
 alert(
@@ -2128,6 +2151,12 @@ alert(
 );
 
 const plan = buildPlan(formData);
+
+setAiProgress(
+  95,
+  "Saving plan...",
+  "Your workout plan is being saved to your dashboard."
+);
 
 // Store Gemini output without changing the dashboard layout yet.
 plan.aiGeneratedText = aiBackendTest.text || "";
